@@ -1,12 +1,16 @@
+//go:build integration
+
 package integration
 
 import (
 	"testing"
+
 	"github.com/sipuaz/sshcloak/internal/config"
 )
 
-var fileHandler 	= config.NewFileHandler()
-const testPath 		= "../resources/ssh_mock_config"
+var fileHandler = config.NewFileHandler()
+
+const testPath = "../resources/ssh_mock_config"
 
 func TestFileHandler_Read(t *testing.T) {
 	data, err := fileHandler.Read(testPath)

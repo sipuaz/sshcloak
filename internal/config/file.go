@@ -26,7 +26,7 @@ func (lf *FileHandler) Write(path string, data []byte, perm os.FileMode) error {
 }
 
 func (lf *FileHandler) Append(path string, data []byte) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, FILE_READ_WRITE_OWNER_READ_ALL)
 	if err != nil {
 		return err
 	}

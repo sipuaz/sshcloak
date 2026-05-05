@@ -1,0 +1,20 @@
+# Typical workstation SSH config.
+# Blocks are ordered most-specific first so that first-match-wins
+# gives the right result for single-valued directives.
+
+Host bastion
+    Hostname bastion.example.com
+    Port 2222
+
+Host *.prod
+    User produser
+    IdentityFile ~/.ssh/id_prod
+
+Match User deploy Host *.prod
+    IdentityFile ~/.ssh/id_deploy
+
+Host *
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    User defaultuser
+    IdentityFile ~/.ssh/id_ed25519

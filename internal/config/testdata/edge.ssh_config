@@ -1,0 +1,12 @@
+# Edge-case SSH config.
+# Exercises: quoted paths, negated patterns, Match All, Key=Value syntax.
+
+Host *
+    IdentityFile "/home/user/my keys/id_rsa"
+    ServerAliveInterval=30
+
+Host !excluded *.example.com
+    User exampleuser
+
+Match All
+    ServerAliveCountMax 5
