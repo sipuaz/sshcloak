@@ -27,26 +27,26 @@ func tokenize(r io.Reader) ([]token, error) {
 
 		// strip inline comments and trim
 		line := strings.TrimSpace(raw)
-		if idx := strings.IndexByte(line, COMMENT_CHAR); idx >= 0 {
+		if idx := strings.IndexByte(line, commentChar); idx >= 0 {
 			line = strings.TrimSpace(line[:idx])
 		}
-		if line == EMPTY_STR {
+		if line == emptyString {
 			continue
 		}
 
 		// split on first '=' or first whitespace run
-		// ssh_config allows both "Key Value" and "Key=Value"
+		// ssh_config allows both "Key Value" and "KeyHeader=Value"
 		var key, rest string
-		if eq := strings.IndexByte(line, EQUAL_CHAR); eq > 0 {
+		if eq := strings.IndexByte(line, equalChar); eq > 0 {
 			// check no space before '=' (that would be a value with spaces)
 			before := line[:eq]
-			if !strings.ContainsAny(before, END_TAB_STR) {
+			if !strings.ContainsAny(before, endTabStr) {
 				key = strings.TrimSpace(before)
 				rest = strings.TrimSpace(line[eq+1:])
 			}
 		}
-		if key == EMPTY_STR {
-			i := strings.IndexAny(line, END_TAB_STR)
+		if key == emptyString {
+			i := strings.IndexAny(line, endTabStr)
 			if i < 0 {
 				key = line
 			} else {
@@ -54,7 +54,7 @@ func tokenize(r io.Reader) ([]token, error) {
 				rest = strings.TrimSpace(line[i:])
 			}
 		}
-		if rest == EMPTY_STR {
+		if rest == emptyString {
 			return nil, &ParseError{Line: lineNum, Raw: raw, Msg: "missing value"}
 		}
 
@@ -82,7 +82,7 @@ func splitValues(key, rest string, lineNum int, raw string) ([]string, error) {
 		return splitFields(rest, lineNum, raw)
 	}
 	// Strip enclosing double quotes for single-valued directives.
-	if len(rest) >= 2 && rest[0] == DOUBLE_QUOTE_CHAR && rest[len(rest)-1] == DOUBLE_QUOTE_CHAR {
+	if len(rest) >= 2 && rest[0] == doubleQuoteChar && rest[len(rest)-1] == doubleQuoteChar {
 		return []string{rest[1 : len(rest)-1]}, nil
 	}
 	return []string{rest}, nil
@@ -95,15 +95,15 @@ func splitFields(s string, lineNum int, raw string) ([]string, error) {
 	var fields []string
 	s = strings.TrimSpace(s)
 	for len(s) > 0 {
-		if s[0] == DOUBLE_QUOTE_CHAR {
-			end := strings.IndexByte(s[1:], DOUBLE_QUOTE_CHAR)
+		if s[0] == doubleQuoteChar {
+			end := strings.IndexByte(s[1:], doubleQuoteChar)
 			if end < 0 {
 				return nil, &ParseError{Line: lineNum, Raw: raw, Msg: "unclosed double quote"}
 			}
 			fields = append(fields, s[1:end+1])
 			s = strings.TrimSpace(s[end+2:])
 		} else {
-			i := strings.IndexAny(s, END_TAB_STR)
+			i := strings.IndexAny(s, endTabStr)
 			if i < 0 {
 				fields = append(fields, s)
 				break

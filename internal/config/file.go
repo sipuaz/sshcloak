@@ -5,13 +5,13 @@ import (
 )
 
 type File interface {
-    Read(path string) ([]byte, error)
-    Write(path string, data []byte, perm os.FileMode) error
+	Read(path string) ([]byte, error)
+	Write(path string, data []byte, perm os.FileMode) error
 	Append(path string, data []byte) error
-    Exists(path string) bool
+	Exists(path string) bool
 }
 
-type FileHandler struct {}
+type FileHandler struct{}
 
 func NewFileHandler() *FileHandler {
 	return &FileHandler{}
@@ -26,7 +26,7 @@ func (lf *FileHandler) Write(path string, data []byte, perm os.FileMode) error {
 }
 
 func (lf *FileHandler) Append(path string, data []byte) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, FILE_READ_WRITE_OWNER_READ_ALL)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, RWOwnerRAll)
 	if err != nil {
 		return err
 	}

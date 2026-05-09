@@ -27,7 +27,7 @@ func blockMatches(b *Block, hostname string, ctx MatchContext) bool {
 // resolve returns the effective configuration for the given hostname and context.
 func matchPatterns(patterns []string, hostname string) bool {
 	for _, p := range patterns {
-		if !strings.HasPrefix(p, NEGATION_STR) {
+		if !strings.HasPrefix(p, negationStr) {
 			continue
 		}
 		ok, _ := path.Match(p[1:], hostname)
@@ -36,10 +36,10 @@ func matchPatterns(patterns []string, hostname string) bool {
 		} // negation wins immediately
 	}
 	for _, p := range patterns {
-		if strings.HasPrefix(p, NEGATION_STR) {
+		if strings.HasPrefix(p, negationStr) {
 			continue
 		}
-		if p == STAR_STR {
+		if p == starStr {
 			return true
 		}
 		ok, _ := path.Match(p, hostname)
@@ -55,20 +55,20 @@ func matchConditions(conds []Condition, ctx MatchContext) bool {
 	evaluated := false
 	for _, c := range conds {
 		switch strings.ToLower(c.Keyword) {
-		case ALL_LOWER_STR:
+		case allLowerStr:
 			evaluated = true
 			// always passes, continue
-		case HOST_STR:
+		case hostStr:
 			evaluated = true
 			if ok, _ := path.Match(c.Value, ctx.Host); !ok {
 				return false
 			}
-		case USER_STR:
+		case userLowerStr:
 			evaluated = true
 			if ok, _ := path.Match(c.Value, ctx.User); !ok {
 				return false
 			}
-		case LOCALUSER_STR:
+		case localUserStr:
 			evaluated = true
 			if ok, _ := path.Match(c.Value, ctx.LocalUser); !ok {
 				return false

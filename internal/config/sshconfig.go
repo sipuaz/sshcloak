@@ -1,6 +1,8 @@
 package config
 
-import "sync"
+import (
+	"sync"
+)
 
 // Config is the parsed representation of an ssh_config file.
 type Config struct {

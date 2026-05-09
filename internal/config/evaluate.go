@@ -63,7 +63,7 @@ func (cfg *Config) Get(hostname, key string, ctx MatchContext) (string, bool) {
 		vals := cached[strings.ToLower(key)]
 		cfg.mu.RUnlock()
 		if len(vals) == 0 {
-			return EMPTY_STR, false
+			return emptyString, false
 		}
 		return vals[0], true
 	}
@@ -82,7 +82,7 @@ func (cfg *Config) Get(hostname, key string, ctx MatchContext) (string, bool) {
 	}
 	vals := result[strings.ToLower(key)]
 	if len(vals) == 0 {
-		return EMPTY_STR, false
+		return emptyString, false
 	}
 	return vals[0], true
 }

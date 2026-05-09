@@ -17,14 +17,14 @@ func Parse(r io.Reader) (*Config, error) {
 
 	// Directives before any Host/Match line go into an implicit "Host *" block.
 	// It is only prepended to cfg.Blocks if it actually collects directives.
-	global := &Block{Type: BlockHost, Patterns: []string{STAR_STR}}
+	global := &Block{Type: BlockHost, Patterns: []string{starStr}}
 	current = global
 
 	for _, tkn := range tokens {
 		lower := strings.ToLower(tkn.key)
 
 		switch lower {
-		case HOST_STR:
+		case hostStr:
 			b := &Block{
 				Type:     BlockHost,
 				Patterns: tkn.values,
@@ -33,7 +33,7 @@ func Parse(r io.Reader) (*Config, error) {
 			cfg.Blocks = append(cfg.Blocks, b)
 			current = b
 
-		case MATCH_STR:
+		case matchStr:
 			b, err := parseMatchBlock(tkn)
 			if err != nil {
 				return nil, err
@@ -63,7 +63,7 @@ func parseMatchBlock(tkn token) (*Block, error) {
 	b := &Block{Type: BlockMatch, Line: tkn.line}
 	vals := tkn.values
 	// Should return a ParseError when len(vals) is odd and not the All special case.
-	if len(vals)%2 != 0 && !(len(vals) == 1 && strings.EqualFold(vals[0], ALL_LOWER_STR)) {
+	if len(vals)%2 != 0 && !(len(vals) == 1 && strings.EqualFold(vals[0], allLowerStr)) {
 		return nil, &ParseError{
 			Line: tkn.line,
 			Msg:  "Match block must have an even number of keyword-value pairs or be 'Match All'",
@@ -76,8 +76,8 @@ func parseMatchBlock(tkn token) (*Block, error) {
 		})
 	}
 	// "Match All" is a special single-token case
-	if len(vals) == 1 && strings.EqualFold(vals[0], ALL_LOWER_STR) {
-		b.Conditions = append(b.Conditions, Condition{Keyword: ALL_STR})
+	if len(vals) == 1 && strings.EqualFold(vals[0], allLowerStr) {
+		b.Conditions = append(b.Conditions, Condition{Keyword: allStr})
 	}
 	return b, nil
 }

@@ -1,21 +1,51 @@
 package config
 
+// File and directory stuff
 const (
-	EMPTY_STR                      = ""
-	FILE_READ_WRITE_OWNER_READ_ALL = 0644
-	COMMENT_CHAR                   = '#'
-	EQUAL_CHAR                     = '='
-	END_TAB_STR                    = " \t"
-	BLANK_STR                      = " "
-	NEGATION_STR                   = "!"
-    ALL_STR                        = "All"
-	ALL_LOWER_STR                  = "all"
-	HOST_STR                       = "host"
-	USER_STR                       = "user"
-	LOCALUSER_STR                  = "localuser"
-	STAR_STR                       = "*"
-	MATCH_STR                      = "match"
-	DOUBLE_QUOTE_CHAR              = '"'
+	RWOwnerRAll  = 0644
+	RWXOwnerRAll = 0755
+	currentDir   = "."
+)
+
+// SSH config syntax stuff
+const (
+	commentChar          = '#'
+	commentHeader        = string(commentChar) + blankStr
+	equalChar            = '='
+	negationStr          = "!"
+	allStr               = "All"
+	allLowerStr          = "all"
+	hostStr              = "host"
+	userStr              = "User"
+	userLowerStr         = "user"
+	localUserStr         = "localuser"
+	starStr              = "*"
+	matchStr             = "match"
+	includeHeader        = "Include "
+	matchHeader          = "Match "
+	hostHeader           = "Host "
+	jollyHostStr         = "*?"
+	hostNameStr          = "HostName"
+	hostNameLowerStr     = "hostname"
+	portStr              = "Port"
+	portLowerStr         = "port"
+	identityFileStr      = "IdentityFile"
+	identityFileLowerStr = "identityfile"
+)
+
+// Rendered config formatting stuff
+const (
+	emptyString         = ""
+	endTabStr           = " \t"
+	blankStr            = " "
+	doubleQuoteChar     = '"'
+	doubleQuoteStr      = string(doubleQuoteChar)
+	newLineChar         = '\n'
+	newLineStr          = string(newLineChar)
+	quotableChars       = " \t\""
+	backslashStr        = "\\"
+	escapedBackslashStr = "\\\\"
+	escapedQuoteStr     = "\\\""
 )
 
 var directives = map[string]bool{
