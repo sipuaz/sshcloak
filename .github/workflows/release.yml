@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          go build \
+            -ldflags "-X github.com/sipuaz/sshcloak/cmd/internal/cli.Version=${{ github.ref_name }}" \
+            -o sshcloak-${{ matrix.goos }}-${{ matrix.goarch }} \
+            ./cmd
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sshcloak-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: sshcloak-${{ matrix.goos }}-${{ matrix.goarch }}
+          retention-days: 1
+
+  release:
+    name: Publish release ${{ github.ref_name }}
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+            prerelease: ${{ contains(github.ref_name, '-alpha') }}
+          files: sshcloak-*

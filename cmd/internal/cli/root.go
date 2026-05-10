@@ -29,8 +29,9 @@ func newRootCmd() *cobra.Command {
 	var vaultPath string
 
 	root := &cobra.Command{
-		Use:   "sshcloak",
-		Short: "Transparent SSH credential manager",
+		Use:     "sshcloak",
+		Short:   "Transparent SSH credential manager",
+		Version: Version,
 		Long: `sshcloak wraps the ssh command to inject passwords silently from the OS
 keyring and manages host entries in ~/.ssh/config via a dedicated include file.`,
 		// SilenceUsage prevents Cobra from printing usage on every error.

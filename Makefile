@@ -4,7 +4,9 @@ INSTALL    := /usr/local/bin/$(BINARY)
 DOCS_REQS  := docs/requirements.txt
 DOCS_VENV  := .venv
 MKDOCS     := $(DOCS_VENV)/bin/mkdocs
-BUILD_FLAGS := -ldflags "-X main.version=$(shell git describe --tags --always 2>/dev/null || echo dev)"
+VERSION_VAR := github.com/sipuaz/sshcloak/cmd/internal/cli.Version
+VERSION     := $(shell cat VERSION 2>/dev/null | tr -d '[:space:]' || git describe --tags --always)
+BUILD_FLAGS := -ldflags "-X $(VERSION_VAR)=$(VERSION)"
 
 .PHONY: all build test test-integration install uninstall clean \
         docs-install docs-serve docs-build docs-deploy

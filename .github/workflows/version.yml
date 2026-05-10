@@ -1,0 +1,84 @@
+name: Version
+
+# Triggered whenever the VERSION file is pushed to main or develop.
+# Validates the version string, checks monotonicity, and creates the git tag
+# that will trigger the release workflow.
+on:
+  push:
+    branches: [main, develop]
+    paths: [VERSION]
+
+jobs:
+  tag:
+    name: Validate and tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full tag history is required for the monotonicity check.
+          fetch-depth: 0
+
+      - name: Read version
+        id: ver
+        run: |
+          VERSION="$(cat VERSION | tr -d '[:space:]')"
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # ── Guard 1: format matches the branch convention ────────────────────────
+      - name: Validate format for branch
+        env:
+          VERSION: ${{ steps.ver.outputs.value }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [[ "$BRANCH" == "main" ]]; then
+            if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::main requires vX.Y.Z (no suffix), got: $VERSION"
+              exit 1
+            fi
+          elif [[ "$BRANCH" == "develop" ]]; then
+            if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+$ ]]; then
+              echo "::error::develop requires vX.Y.Z-alpha.N, got: $VERSION"
+              exit 1
+            fi
+          fi
+
+      # ── Guard 2: tag must not already exist ─────────────────────────────────
+      - name: Check for duplicate tag
+        env:
+          VERSION: ${{ steps.ver.outputs.value }}
+        run: |
+          if git tag --list | grep -qx "$VERSION"; then
+            echo "::error::tag $VERSION already exists"
+            exit 1
+          fi
+
+      # ── Guard 3: new version must be strictly greater than any existing tag ─
+      - name: Check monotonicity
+        env:
+          VERSION: ${{ steps.ver.outputs.value }}
+        run: |
+          # Collect all semver tags, ignoring the rolling 'dev' label.
+          LATEST=$(git tag --list 'v*' | grep -v '^dev$' | sort -V | tail -1)
+          if [[ -z "$LATEST" ]]; then
+            echo "No existing semver tags — first release, skipping monotonicity check."
+            exit 0
+          fi
+          HIGHEST=$(printf '%s\n%s\n' "$LATEST" "$VERSION" | sort -V | tail -1)
+          if [[ "$HIGHEST" != "$VERSION" || "$VERSION" == "$LATEST" ]]; then
+            echo "::error::$VERSION is not greater than the latest tag $LATEST"
+            exit 1
+          fi
+
+      # ── Create and push the tag ──────────────────────────────────────────────
+      - name: Create and push tag
+        env:
+          VERSION: ${{ steps.ver.outputs.value }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          echo "Tagged $VERSION and pushed."
