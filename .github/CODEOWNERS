@@ -1,0 +1,8 @@
+# Default ownership for the entire repository.
+* @sipuaz
+
+# Sensitive areas keep explicit ownership for visibility.
+.github/ @sipuaz
+cmd/ @sipuaz
+internal/ @sipuaz
+docs/ @sipuaz
