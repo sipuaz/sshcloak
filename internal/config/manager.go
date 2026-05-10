@@ -211,12 +211,13 @@ func (m *Manager) loadConfig(path string) (*Config, error) {
 	return cfg, nil
 }
 
-// persistManagedConfig writes the current managed config in canonical form.
+// persistManagedConfig writes the current managed config in canonical form
+// using an atomic rename so readers never observe a partial write.
 func (m *Manager) persistManagedConfig(cfg *Config) error {
 	if err := ensureParentDir(m.managedConfigPath); err != nil {
 		return err
 	}
-	return m.files.Write(m.managedConfigPath, renderConfig(cfg), RWOwnerRAll)
+	return m.files.AtomicWrite(m.managedConfigPath, renderConfig(cfg), RWOwnerRAll)
 }
 
 // hostExistsInConfigTree reports whether the label exists in the root config or any included config.

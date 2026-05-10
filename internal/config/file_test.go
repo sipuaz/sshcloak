@@ -35,6 +35,11 @@ func (s *fileStub) Append(path string, data []byte) error {
 	return nil
 }
 
+// AtomicWrite delegates to Write; in-memory storage has no partial-write risk.
+func (s *fileStub) AtomicWrite(path string, data []byte, perm os.FileMode) error {
+	return s.Write(path, data, perm)
+}
+
 func (s *fileStub) Exists(path string) bool {
 	_, ok := s.storage[path]
 	return ok
@@ -88,5 +93,18 @@ func TestFileStubExists(t *testing.T) {
 	}
 	if stub.Exists("missing") {
 		t.Error("Exists() should return false for absent key")
+	}
+}
+
+// TestFileStubAtomicWrite verifies the stub delegates AtomicWrite to Write,
+// producing the expected content in the in-memory storage map.
+func TestFileStubAtomicWrite(t *testing.T) {
+	stub := newFileStub()
+	want := []byte("atomic content")
+	if err := stub.AtomicWrite("config", want, 0644); err != nil {
+		t.Fatalf("AtomicWrite() error: %v", err)
+	}
+	if got := string(stub.storage["config"]); got != string(want) {
+		t.Errorf("AtomicWrite() stored %q, want %q", got, want)
 	}
 }

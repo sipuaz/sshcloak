@@ -1,0 +1,48 @@
+// Package vault implements the "sshcloak vault" command group and the vault
+// store injection mechanism used by password sub-commands.
+package vault
+
+import (
+	"github.com/sipuaz/sshcloak/internal/keyring"
+	"github.com/spf13/cobra"
+)
+
+// sharedStore is the vault store instance injected by root.PersistentPreRunE.
+// CLI commands run sequentially, so a package-level pointer is safe here.
+var sharedStore *keyring.FileVaultStore
+
+// SetStore is called by root.PersistentPreRunE to inject the vault store before
+// any sub-command that needs it runs.
+func SetStore(_ *cobra.Command, store *keyring.FileVaultStore) {
+	sharedStore = store
+}
+
+// getStore returns the injected vault store, panicking on a wiring bug.
+func getStore() *keyring.FileVaultStore {
+	if sharedStore == nil {
+		panic("sshcloak: vault store not initialised — this is a bug")
+	}
+	return sharedStore
+}
+
+// GetStore is the exported accessor used by sibling command packages (e.g.
+// the password package) that share the same injected vault store.
+func GetStore() *keyring.FileVaultStore {
+	return getStore()
+}
+
+// NewVaultCmd returns the parent "vault" command.  It has no Run of its own.
+func NewVaultCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "vault",
+		Short: "Manage the encrypted secret vault",
+		Long:  "Initialise, unlock, and rotate the passphrase of the sshcloak encrypted vault.",
+	}
+
+	cmd.AddCommand(
+		newInitCmd(),
+		newRotateCmd(),
+	)
+
+	return cmd
+}
