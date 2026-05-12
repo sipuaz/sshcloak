@@ -1,4 +1,4 @@
-# Internals
+-.-# Internals
 
 This page describes sshcloak's internal architecture for contributors and
 advanced users.
@@ -10,23 +10,23 @@ advanced users.
 ```mermaid
 graph TD
     subgraph cmd
-        ROOT[root.go\nflags + wiring]
-        HOST[host/*\nadd list get edit remove]
-        VAULT[vault/*\ninit rotate-passphrase]
-        PASS[password/*\nset get delete list]
+        ROOT[root.go flags + wiring]
+        HOST[host/* add list get edit remove]
+        VAULT[vault/* init rotate-passphrase]
+        PASS[password/* set get delete list]
     end
 
     subgraph internal/config
-        MGR[Manager\nCRUD + include bootstrap]
-        PARSER[Parser\ntokenizer → AST]
-        EVAL[Evaluator\nfirst-match-wins resolve]
-        FILE[FileHandler\natomic read/write]
+        MGR[Manager CRUD + include bootstrap]
+        PARSER[Parser tokenizer → AST]
+        EVAL[Evaluator first-match-wins resolve]
+        FILE[FileHandler atomic read/write]
     end
 
     subgraph internal/keyring
-        STORE[FileVaultStore\nlock / unlock / CRUD]
-        CRYPTO[crypto.go\nage encrypt / decrypt]
-        TYPES[types.go\nSecretRecord VaultDocument]
+        STORE[FileVaultStore lock / unlock / CRUD]
+        CRYPTO[crypto.go age encrypt / decrypt]
+        TYPES[types.go SecretRecord VaultDocument]
     end
 
     ROOT --> HOST
@@ -58,11 +58,11 @@ library so the output is always canonical and round-trips losslessly.
 
 ```mermaid
 flowchart LR
-    A[raw text] --> B[Lexer\ntoken stream]
-    B --> C[Parser\nAST: Config / Block / Directive]
-    C --> D[Evaluator\nResolve hostname → directives]
-    C --> E[Renderer\nAST → canonical text]
-    E --> F[FileHandler\natomic write]
+    A[raw text] --> B[Lexer token stream]
+    B --> C[Parser AST: Config / Block / Directive]
+    C --> D[Evaluator Resolve hostname → directives]
+    C --> E[Renderer AST → canonical text]
+    E --> F[FileHandler atomic write]
 ```
 
 ### Isolation model

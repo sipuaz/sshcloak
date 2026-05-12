@@ -28,6 +28,65 @@ func NewFileVaultStore(path string) *FileVaultStore {
 	return &FileVaultStore{path: path}
 }
 
+// Initialize creates the vault file with the provided passphrase if it does
+// not already exist, or verifies that an existing vault can be unlocked.
+func (s *FileVaultStore) Initialize(passphrase string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+
+		s.lockBytes()
+		s.passphrase = []byte(passphrase)
+		s.document = newVaultDocument()
+		s.unlocked = true
+		if err := s.persistLocked(); err != nil {
+			s.lockBytes()
+			s.document = VaultDocument{}
+			s.unlocked = false
+			return err
+		}
+		s.lockBytes()
+		s.document = VaultDocument{}
+		s.unlocked = false
+		return nil
+	}
+
+	if len(bytesTrimSpace(data)) == 0 {
+		s.lockBytes()
+		s.passphrase = []byte(passphrase)
+		s.document = newVaultDocument()
+		s.unlocked = true
+		if err := s.persistLocked(); err != nil {
+			s.lockBytes()
+			s.document = VaultDocument{}
+			s.unlocked = false
+			return err
+		}
+		s.lockBytes()
+		s.document = VaultDocument{}
+		s.unlocked = false
+		return nil
+	}
+
+	document, err := decryptVaultDocument(data, passphrase)
+	if err != nil {
+		return err
+	}
+	s.lockBytes()
+	s.passphrase = []byte(passphrase)
+	s.document = document
+	s.unlocked = true
+	s.lockBytes()
+	s.document = VaultDocument{}
+	s.unlocked = false
+	return nil
+}
+
 // Unlock loads and decrypts the vault using the provided passphrase.
 func (s *FileVaultStore) Unlock(passphrase string) error {
 	s.mu.Lock()

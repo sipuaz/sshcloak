@@ -76,6 +76,8 @@ keyring and manages host entries in ~/.ssh/config via a dedicated include file.`
 
 	// Attach command groups.
 	root.AddCommand(
+		newInitCmd(),
+		newVersionCmd(),
 		host.NewHostCmd(),
 		vault.NewVaultCmd(),
 		password.NewPasswordCmd(),

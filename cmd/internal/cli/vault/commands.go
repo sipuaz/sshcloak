@@ -28,10 +28,9 @@ optional: the first "password set" call will also create the vault.`,
 			}
 
 			store := getStore()
-			if err := store.Unlock(passphrase); err != nil {
+			if err := store.Initialize(passphrase); err != nil {
 				return fmt.Errorf("vault init: %w", err)
 			}
-			store.Lock()
 
 			fmt.Fprintln(cmd.OutOrStdout(), "vault initialised")
 			return nil

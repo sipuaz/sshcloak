@@ -45,29 +45,56 @@ func NewManager(files File, userConfigPath, managedConfigPath string) *Manager {
 }
 
 // EnsureInclude ensures the root SSH config contains one Include directive for the managed file.
-func (m *Manager) EnsureInclude() error {
+// When authoritative is true (the default) the Include is placed at the very top of the file so
+// sshcloak host blocks take precedence over any existing entries (first-match-wins semantics).
+// If the Include already exists but is not at the top, it is relocated there.
+// When authoritative is false the Include is appended, preserving existing precedence.
+func (m *Manager) EnsureInclude(authoritative bool) error {
 	if err := ensureParentDir(m.userConfigPath); err != nil {
 		return err
 	}
 
 	if m.files.Exists(m.userConfigPath) {
-		cfg, err := m.loadConfig(m.userConfigPath)
-		if err != nil {
-			return err
-		}
-		if configIncludesPath(cfg, m.userConfigPath, m.managedConfigPath) {
-			return nil
-		}
-
 		existing, err := m.files.Read(m.userConfigPath)
 		if err != nil {
 			return err
 		}
-		line := formatIncludeLine(m.managedConfigPath)
-		if len(existing) > 0 && existing[len(existing)-1] != newLineChar {
-			line = newLineStr + line
+
+		cfg, err := m.loadConfig(m.userConfigPath)
+		if err != nil {
+			return err
 		}
-		return m.files.Append(m.userConfigPath, []byte(line))
+
+		line := formatIncludeLine(m.managedConfigPath)
+		alreadyPresent := configIncludesPath(cfg, m.userConfigPath, m.managedConfigPath)
+
+		if authoritative {
+			// Already at the top — nothing to do.
+			if alreadyPresent && isIncludeAtTop(existing, line) {
+				return nil
+			}
+			// Present but not at the top — strip and prepend.
+			if alreadyPresent {
+				stripped := removeIncludeLine(existing, line)
+				return m.files.AtomicWrite(m.userConfigPath, append([]byte(line), stripped...), RWOwnerRAll)
+			}
+			// Not present — prepend, separating from existing content with a newline.
+			suffix := existing
+			if len(existing) > 0 {
+				suffix = append([]byte(newLineStr), existing...)
+			}
+			return m.files.AtomicWrite(m.userConfigPath, append([]byte(line), suffix...), RWOwnerRAll)
+		}
+
+		// Non-authoritative: append only if not already present.
+		if alreadyPresent {
+			return nil
+		}
+		appendLine := line
+		if len(existing) > 0 && existing[len(existing)-1] != newLineChar {
+			appendLine = newLineStr + line
+		}
+		return m.files.Append(m.userConfigPath, []byte(appendLine))
 	}
 
 	return m.files.Write(m.userConfigPath, []byte(formatIncludeLine(m.managedConfigPath)), RWOwnerRAll)
@@ -125,7 +152,7 @@ func (m *Manager) AddHost(spec HostSpec) error {
 		return fmt.Errorf("%w: %s", ErrHostAlreadyExists, normalized.Label)
 	}
 
-	if err := m.EnsureInclude(); err != nil {
+	if err := m.EnsureInclude(true); err != nil {
 		return err
 	}
 
@@ -512,6 +539,34 @@ func cleanPath(path string) string {
 // formatIncludeLine renders one Include directive line with a trailing newline.
 func formatIncludeLine(path string) string {
 	return includeHeader + renderValue(path) + newLineStr
+}
+
+// isIncludeAtTop reports whether the Include line for the managed file is the
+// very first non-empty, non-comment line in the raw config bytes.
+func isIncludeAtTop(raw []byte, includeLine string) bool {
+	for _, line := range strings.SplitAfter(string(raw), newLineStr) {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == emptyString || strings.HasPrefix(trimmed, string(commentChar)) {
+			continue
+		}
+		return strings.TrimSpace(line) == strings.TrimSpace(includeLine)
+	}
+	return false
+}
+
+// removeIncludeLine strips every occurrence of the Include directive for the
+// managed file from raw config bytes, cleaning up any double blank lines left
+// behind.
+func removeIncludeLine(raw []byte, includeLine string) []byte {
+	needle := strings.TrimSpace(includeLine)
+	var out []byte
+	for _, line := range strings.SplitAfter(string(raw), newLineStr) {
+		if strings.TrimSpace(line) == needle {
+			continue
+		}
+		out = append(out, []byte(line)...)
+	}
+	return out
 }
 
 // ensureParentDir creates the parent directory for a config file when needed.

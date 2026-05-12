@@ -22,6 +22,16 @@ Your `~/.ssh/config` stays exactly as you wrote it — sshcloak manages host ent
 
 ## Installation
 
+If you want `sshcloak` available as a global command without sudo, install it
+to your user bin directory:
+
+```bash
+make install-user
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+For a system-wide install:
+
 ```bash
 git clone https://github.com/sipuaz/sshcloak.git
 cd sshcloak
@@ -37,16 +47,20 @@ go install github.com/sipuaz/sshcloak/cmd@latest
 ## Quick start
 
 ```bash
-# 1. Create the vault
-sshcloak vault init
+# 1. Bootstrap sshcloak
+sshcloak init
 
 # 2. Add a host
 sshcloak host add prod --hostname 203.0.113.5 --user alice --port 22
 
-# 3. Store its password
+# 3. Check the version or help
+sshcloak version
+sshcloak --help
+
+# 4. Store its password
 sshcloak password set prod
 
-# 4. Connect normally
+# 5. Connect normally
 ssh prod
 ```
 
@@ -74,6 +88,8 @@ sshcloak/
 | Target | Description |
 |---|---|
 | `make build` | Compile binary to `./sshcloak` |
+| `make init` | Build and bootstrap sshcloak for the current user |
+| `make install-user` | Build and install to `~/.local/bin` |
 | `make install` | Build and copy to `/usr/local/bin` |
 | `make test` | Run unit tests |
 | `make test-integration` | Run unit + integration tests |

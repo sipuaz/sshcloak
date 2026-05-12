@@ -33,6 +33,12 @@ func getManager() *config.Manager {
 	return sharedManager
 }
 
+// GetManager returns the injected manager for sibling command packages that
+// need to share the same application context.
+func GetManager() *config.Manager {
+	return getManager()
+}
+
 // NewHostCmd returns the parent "host" command.  It has no Run of its own;
 // running "sshcloak host" without a sub-command prints usage automatically.
 func NewHostCmd() *cobra.Command {
