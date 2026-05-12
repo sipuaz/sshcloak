@@ -4,6 +4,18 @@
 
 ### From source (recommended)
 
+To install `sshcloak` as a global command for your user account without
+sudo, use the user-local target:
+
+```bash
+git clone https://github.com/sipuaz/sshcloak.git
+cd sshcloak
+make install-user
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+For a system-wide install:
+
 ```bash
 git clone https://github.com/sipuaz/sshcloak.git
 cd sshcloak
@@ -26,23 +38,46 @@ Ensure that directory is on your `$PATH`:
 export PATH="$HOME/go/bin:$PATH"   # add to ~/.zshrc or ~/.bashrc
 ```
 
+You can also check the installed binary with:
+
+```bash
+sshcloak version
+sshcloak --help
+```
+
 ---
 
 ## First run
 
-### 1 — Initialise the vault
+### 1 — Bootstrap sshcloak
 
-The vault is an age-encrypted file that stores SSH passwords.  
-Create it with a passphrase you will remember:
+The bootstrap command creates the `Include ~/.ssh/sshcloak/config` line in
+`~/.ssh/config` and initialises the encrypted vault.  Create it with a
+passphrase you will remember:
 
 ```
-$ sshcloak vault init
-Enter vault passphrase:
+$ sshcloak init
+Enter sshcloak vault passphrase:
 Confirm passphrase:
-vault initialised
+sshcloak initialised
 ```
 
 The vault is written to `~/.ssh/sshcloak/vault.age`.
+
+By default `sshcloak init` places the `Include` directive at the **top** of
+`~/.ssh/config` so that sshcloak host entries take precedence over any
+existing entries (SSH uses first-match-wins semantics).  If the directive was
+previously placed at the bottom (for example by an earlier `sshcloak host
+add`), it is automatically relocated to the top.
+
+If you want the Include directive appended instead, use `--append`:
+
+```bash
+sshcloak init --append
+```
+
+If you prefer a local shortcut during development, `make init` runs the same
+bootstrap flow after building the binary.
 
 ### 2 — Add a host
 
@@ -54,8 +89,9 @@ $ sshcloak host add myserver \
 host "myserver" added
 ```
 
-sshcloak appends one `Include ~/.ssh/sshcloak/config` line to `~/.ssh/config`  
-the first time you add a host (if it is not already present).
+sshcloak adds one `Include ~/.ssh/sshcloak/config` line at the **top** of
+`~/.ssh/config` if the bootstrap command has not already done it, ensuring
+sshcloak hosts are resolved with the highest priority.
 
 ### 3 — Store the password
 

@@ -35,6 +35,9 @@ func TestManagerAddHostWritesManagedConfig(t *testing.T) {
 	if !strings.Contains(userConfig, "Include managed.conf") {
 		t.Fatalf("user config missing Include directive: %q", userConfig)
 	}
+	if !strings.HasPrefix(userConfig, "Include managed.conf\n") {
+		t.Fatalf("Include directive not at top of user config: %q", userConfig)
+	}
 
 	host, err := manager.GetHost("prod")
 	if err != nil {
@@ -146,5 +149,102 @@ func TestManagerListHostsSkipsUnsupportedBlocks(t *testing.T) {
 	}
 	if len(hosts) != 1 || hosts[0].Label != "app" {
 		t.Fatalf("ListHosts() = %+v, want only app", hosts)
+	}
+}
+
+// TestEnsureIncludeAuthoritativePrepends verifies the Include is placed at the top
+// of an existing config that does not yet reference the managed file.
+func TestEnsureIncludeAuthoritativePrepends(t *testing.T) {
+	files := newFileStub()
+	files.storage["user.conf"] = []byte("Host legacy\n  User alice\n")
+
+	manager := config.NewManager(files, "user.conf", "managed.conf")
+	if err := manager.EnsureInclude(true); err != nil {
+		t.Fatalf("EnsureInclude(true) error: %v", err)
+	}
+
+	got := string(files.storage["user.conf"])
+	if !strings.HasPrefix(got, "Include managed.conf\n") {
+		t.Errorf("expected Include at top, got:\n%s", got)
+	}
+	if !strings.Contains(got, "Host legacy") {
+		t.Errorf("expected original content preserved, got:\n%s", got)
+	}
+}
+
+// TestEnsureIncludeAuthoritativeRelocates verifies that a bottom-placed Include
+// is moved to the top when EnsureInclude is called in authoritative mode.
+func TestEnsureIncludeAuthoritativeRelocates(t *testing.T) {
+	files := newFileStub()
+	files.storage["user.conf"] = []byte("Host legacy\n  User alice\nInclude managed.conf\n")
+
+	manager := config.NewManager(files, "user.conf", "managed.conf")
+	if err := manager.EnsureInclude(true); err != nil {
+		t.Fatalf("EnsureInclude(true) error: %v", err)
+	}
+
+	got := string(files.storage["user.conf"])
+	if !strings.HasPrefix(got, "Include managed.conf\n") {
+		t.Errorf("expected Include relocated to top, got:\n%s", got)
+	}
+	// The Include must not appear twice.
+	if strings.Count(got, "Include managed.conf") != 1 {
+		t.Errorf("Include directive appears more than once:\n%s", got)
+	}
+	if !strings.Contains(got, "Host legacy") {
+		t.Errorf("expected original content preserved, got:\n%s", got)
+	}
+}
+
+// TestEnsureIncludeAuthoritativeIdempotent verifies no-op when Include is already at the top.
+func TestEnsureIncludeAuthoritativeIdempotent(t *testing.T) {
+	files := newFileStub()
+	original := "Include managed.conf\nHost legacy\n  User alice\n"
+	files.storage["user.conf"] = []byte(original)
+
+	manager := config.NewManager(files, "user.conf", "managed.conf")
+	if err := manager.EnsureInclude(true); err != nil {
+		t.Fatalf("EnsureInclude(true) error: %v", err)
+	}
+
+	if got := string(files.storage["user.conf"]); got != original {
+		t.Errorf("file modified unexpectedly:\ngot:  %q\nwant: %q", got, original)
+	}
+}
+
+// TestEnsureIncludeNonAuthoritativeAppends verifies the Include is placed at the
+// bottom when authoritative is false.
+func TestEnsureIncludeNonAuthoritativeAppends(t *testing.T) {
+	files := newFileStub()
+	files.storage["user.conf"] = []byte("Host legacy\n  User alice\n")
+
+	manager := config.NewManager(files, "user.conf", "managed.conf")
+	if err := manager.EnsureInclude(false); err != nil {
+		t.Fatalf("EnsureInclude(false) error: %v", err)
+	}
+
+	got := string(files.storage["user.conf"])
+	if strings.HasPrefix(got, "Include") {
+		t.Errorf("expected Include at bottom, but it is at the top:\n%s", got)
+	}
+	if !strings.HasSuffix(got, "Include managed.conf\n") {
+		t.Errorf("expected Include at bottom, got:\n%s", got)
+	}
+}
+
+// TestEnsureIncludeNonAuthoritativeIdempotent verifies no duplicate is added
+// when a bottom-placed Include already exists and mode is non-authoritative.
+func TestEnsureIncludeNonAuthoritativeIdempotent(t *testing.T) {
+	files := newFileStub()
+	original := "Host legacy\n  User alice\nInclude managed.conf\n"
+	files.storage["user.conf"] = []byte(original)
+
+	manager := config.NewManager(files, "user.conf", "managed.conf")
+	if err := manager.EnsureInclude(false); err != nil {
+		t.Fatalf("EnsureInclude(false) error: %v", err)
+	}
+
+	if got := string(files.storage["user.conf"]); got != original {
+		t.Errorf("file modified unexpectedly:\ngot:  %q\nwant: %q", got, original)
 	}
 }

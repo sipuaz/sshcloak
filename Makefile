@@ -1,6 +1,8 @@
 BINARY     := sshcloak
 CMD        := ./cmd
 INSTALL    := /usr/local/bin/$(BINARY)
+USER_BIN   := $(HOME)/.local/bin
+USER_INSTALL := $(USER_BIN)/$(BINARY)
 DOCS_REQS  := docs/requirements.txt
 DOCS_VENV  := .venv
 MKDOCS     := $(DOCS_VENV)/bin/mkdocs
@@ -8,8 +10,9 @@ VERSION_VAR := github.com/sipuaz/sshcloak/cmd/internal/cli.Version
 VERSION     := $(shell cat VERSION 2>/dev/null | tr -d '[:space:]' || git describe --tags --always)
 BUILD_FLAGS := -ldflags "-X $(VERSION_VAR)=$(VERSION)"
 
-.PHONY: all build test test-integration install uninstall clean \
-        docs-install docs-serve docs-build docs-deploy
+.PHONY: all build test test-integration install uninstall clean init \
+	docs-install docs-serve docs-build docs-deploy
+.PHONY: install-user
 
 all: build
 
@@ -29,6 +32,11 @@ test-integration:
 install: build
 	install -m 0755 $(BINARY) $(INSTALL)
 
+## install-user: build and install the binary to ~/.local/bin
+install-user: build
+	mkdir -p $(USER_BIN)
+	install -m 0755 $(BINARY) $(USER_INSTALL)
+
 ## uninstall: remove the installed binary
 uninstall:
 	rm -f $(INSTALL)
@@ -36,6 +44,10 @@ uninstall:
 ## clean: remove the local build artifact
 clean:
 	rm -f $(BINARY)
+
+## init: build the binary and bootstrap sshcloak for the current user
+init: build
+	./$(BINARY) init
 
 ## docs-install: create a venv and install Python doc dependencies
 docs-install:

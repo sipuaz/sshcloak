@@ -22,6 +22,9 @@ The vault is locked at rest.  Every command that reads or writes secrets
 prompts for the passphrase, unlocks the vault in memory, performs its
 operation, then locks the vault again before exiting.
 
+For a fresh installation, use [`sshcloak init`](../getting-started.md) to
+bootstrap both the SSH include file and the vault in one step.
+
 ---
 
 ## Subcommands
@@ -40,7 +43,7 @@ performing an unlock/lock round-trip.
 The passphrase is prompted twice for confirmation (no echo).
 
 Running `vault init` is optional.  The first `password set` call also creates
-the vault automatically.
+the vault automatically, but it does not configure the SSH include line.
 
 **Example**
 

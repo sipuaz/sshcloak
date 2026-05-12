@@ -39,8 +39,12 @@ func TestManagerIntegrationCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read(user config) error: %v", err)
 	}
-	if !strings.Contains(string(userConfigBytes), "Include "+managedConfigPath) {
-		t.Fatalf("user config missing Include directive: %q", string(userConfigBytes))
+	userConfigStr := string(userConfigBytes)
+	if !strings.Contains(userConfigStr, "Include "+managedConfigPath) {
+		t.Fatalf("user config missing Include directive: %q", userConfigStr)
+	}
+	if !strings.HasPrefix(userConfigStr, "Include "+managedConfigPath+"\n") {
+		t.Fatalf("Include directive not at top of user config: %q", userConfigStr)
 	}
 
 	err = manager.UpdateHost("prod", config.HostSpec{
