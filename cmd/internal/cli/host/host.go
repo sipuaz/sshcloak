@@ -4,12 +4,9 @@ package host
 
 import (
 	"github.com/sipuaz/sshcloak/internal/config"
+	"github.com/sipuaz/sshcloak/internal/metadata"
 	"github.com/spf13/cobra"
 )
-
-// managerKey is the context key used to store the Manager on the root command
-// so all sub-commands can retrieve it without global state.
-type managerKey struct{}
 
 // SetManager stores the manager on the root command's annotation map so it
 // survives across the PersistentPreRunE / RunE boundary.
@@ -17,6 +14,9 @@ type managerKey struct{}
 // for non-string values, so we use the command's parent chain and a package-
 // level pointer instead (safe because commands run sequentially in a CLI).
 var sharedManager *config.Manager
+
+// sharedMetadata is injected by the root command and backs host tagging.
+var sharedMetadata *metadata.Store
 
 // SetManager is called by root.PersistentPreRunE to inject the manager before
 // any sub-command runs.
@@ -39,6 +39,19 @@ func GetManager() *config.Manager {
 	return getManager()
 }
 
+// SetMetadataStore injects the sidecar metadata store before sub-commands run.
+func SetMetadataStore(_ *cobra.Command, store *metadata.Store) {
+	sharedMetadata = store
+}
+
+// getMetadata retrieves the injected metadata store, panicking on wiring bugs.
+func getMetadata() *metadata.Store {
+	if sharedMetadata == nil {
+		panic("sshcloak: metadata store not initialised — this is a bug")
+	}
+	return sharedMetadata
+}
+
 // NewHostCmd returns the parent "host" command.  It has no Run of its own;
 // running "sshcloak host" without a sub-command prints usage automatically.
 func NewHostCmd() *cobra.Command {
@@ -52,6 +65,7 @@ func NewHostCmd() *cobra.Command {
 		newAddCmd(),
 		newListCmd(),
 		newGetCmd(),
+		newTagCmd(),
 		newEditCmd(),
 		newRemoveCmd(),
 	)

@@ -12,6 +12,7 @@ import (
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
 	"github.com/sipuaz/sshcloak/internal/config"
 	"github.com/sipuaz/sshcloak/internal/keyring"
+	"github.com/sipuaz/sshcloak/internal/metadata"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +27,7 @@ func Execute() error {
 func newRootCmd() *cobra.Command {
 	var userConfigPath string
 	var managedConfigPath string
+	var metaPath string
 	var vaultPath string
 
 	root := &cobra.Command{
@@ -57,6 +59,12 @@ keyring and manages host entries in ~/.ssh/config via a dedicated include file.`
 		defaultVaultPath(),
 		"path to the encrypted vault file",
 	)
+	root.PersistentFlags().StringVar(
+		&metaPath,
+		"meta",
+		defaultMetaPath(),
+		"path to the sshcloak host metadata file",
+	)
 
 	// Build the shared app context after flags have been parsed.
 	// PersistentPreRunE runs before every sub-command's Run.
@@ -67,6 +75,7 @@ keyring and manages host entries in ~/.ssh/config via a dedicated include file.`
 			managedConfigPath,
 		)
 		host.SetManager(cmd, mgr)
+		host.SetMetadataStore(cmd, metadata.NewStore(config.NewFileHandler(), metaPath))
 
 		store := keyring.NewFileVaultStore(vaultPath)
 		vault.SetStore(cmd, store)
@@ -113,4 +122,13 @@ func defaultVaultPath() string {
 		return filepath.Join(".ssh", "sshcloak", "vault.age")
 	}
 	return filepath.Join(home, ".ssh", "sshcloak", "vault.age")
+}
+
+// defaultMetaPath returns ~/.ssh/sshcloak/meta.yaml.
+func defaultMetaPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".ssh", "sshcloak", "meta.yaml")
+	}
+	return filepath.Join(home, ".ssh", "sshcloak", "meta.yaml")
 }
