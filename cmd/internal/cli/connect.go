@@ -12,6 +12,7 @@ import (
 
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/host"
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
+	"github.com/sipuaz/sshcloak/internal/config"
 	"github.com/sipuaz/sshcloak/internal/keyring"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -30,34 +31,66 @@ import (
 // Extra arguments to ssh can be appended after a double-dash separator:
 //
 //	sshcloak connect prod -- -X -L 8080:localhost:80
+//
+// When no label is given an interactive host picker is shown.
+// --debug=<1|2|3> adds -v / -vv / -vvv to the underlying ssh invocation.
 func newConnectCmd() *cobra.Command {
+	var debugLevel int
+
 	cmd := &cobra.Command{
-		Use:   "connect <label> [-- <ssh-args>...]",
+		Use:   "connect [<label>] [-- <ssh-args>...]",
 		Short: "Open an SSH session with automatic password injection",
 		Long: `Unlock the vault, retrieve the stored password for <label>, and exec:
 
-  sshpass -e ssh <label> [ssh-args...]
+		sshpass -e ssh <label> [ssh-args...]
 
-The password is passed to sshpass via the SSHPASS environment variable to
-keep it out of the process list.  Any arguments after -- are forwarded
-unchanged to ssh.
+		The password is passed to sshpass via the SSHPASS environment variable to
+		keep it out of the process list.  Any arguments after -- are forwarded
+		unchanged to ssh.
 
-If the host key is not yet trusted, sshcloak fetches it via ssh-keyscan,
-displays the fingerprint, and asks for confirmation before adding it to
-~/.ssh/known_hosts — exactly as OpenSSH would.
+		If the host key is not yet trusted, sshcloak fetches it via ssh-keyscan,
+		displays the fingerprint, and asks for confirmation before adding it to
+		~/.ssh/known_hosts — exactly as OpenSSH would.
 
-sshpass must be installed:
-  apt install sshpass
-  brew install hudochenkov/sshpass/sshpass
-  dnf install sshpass`,
-		Args: cobra.MinimumNArgs(1),
+		When no label is provided an interactive list of managed hosts is shown;
+		use ↑/↓ to navigate, Enter to select, and q to cancel.
+
+		sshpass must be installed:
+		apt install sshpass
+		brew install hudochenkov/sshpass/sshpass
+		dnf install sshpass`,
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			label := args[0]
+			if debugLevel < 0 || debugLevel > 3 {
+				return fmt.Errorf("connect: --debug level must be between 0 and 3")
+			}
 
-			// Collect any extra ssh arguments supplied after --.
-			var extraSSHArgs []string
+			// Split positional args from extra ssh args around the -- separator.
+			var labelArgs, extraSSHArgs []string
 			if dashIdx := cmd.ArgsLenAtDash(); dashIdx >= 0 {
+				labelArgs = args[:dashIdx]
 				extraSSHArgs = args[dashIdx:]
+			} else {
+				labelArgs = args
+			}
+
+			// Resolve the label — interactively if not supplied.
+			var label string
+			if len(labelArgs) == 0 {
+				mgr := host.GetManager()
+				hosts, err := mgr.ListHosts()
+				if err != nil {
+					return fmt.Errorf("connect: list hosts: %w", err)
+				}
+				if len(hosts) == 0 {
+					return errors.New("connect: no managed hosts found; add one with 'sshcloak host add'")
+				}
+				label, err = pickHost(hosts)
+				if err != nil {
+					return err
+				}
+			} else {
+				label = labelArgs[0]
 			}
 
 			// Locate sshpass early so we fail before prompting for the passphrase.
@@ -106,12 +139,21 @@ sshpass must be installed:
 				return fmt.Errorf("connect: retrieve password: %w", err)
 			}
 
-			// Build argv for sshpass.  StrictHostKeyChecking=yes is safe here
-			// because ensureKnownHost has already verified and recorded the key.
-			argv := append(
-				[]string{"sshpass", "-e", sshPath, "-o", "StrictHostKeyChecking=yes", label},
-				extraSSHArgs...,
-			)
+			// Build the base ssh arguments.
+			// StrictHostKeyChecking=yes is safe here because ensureKnownHost has
+			// already verified and recorded the key.
+			sshArgs := []string{sshPath, "-o", "StrictHostKeyChecking=yes"}
+
+			// Append -v / -vv / -vvv when a debug level was requested.
+			if debugLevel > 0 {
+				sshArgs = append(sshArgs, "-"+strings.Repeat("v", debugLevel))
+			}
+
+			sshArgs = append(sshArgs, label)
+			sshArgs = append(sshArgs, extraSSHArgs...)
+
+			// Build argv for sshpass.
+			argv := append([]string{"sshpass", "-e"}, sshArgs...)
 
 			// Inject the password via environment — not via a -p flag — so it
 			// does not appear in the output of `ps`.
@@ -124,7 +166,92 @@ sshpass must be installed:
 		},
 	}
 
+	cmd.Flags().IntVar(&debugLevel, "debug", 0, "SSH verbosity level: 1=-v, 2=-vv, 3=-vvv")
+
 	return cmd
+}
+
+// pickHost displays an interactive list of managed hosts in the terminal and
+// returns the label selected by the user.  Navigation: ↑/↓ arrows, Enter to
+// confirm, q to cancel.  The controlling terminal (/dev/tty) is used directly
+// so the picker works even when stdin/stdout are redirected.
+func pickHost(hosts []config.HostSpec) (string, error) {
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return "", fmt.Errorf("connect: cannot open terminal for host picker: %w", err)
+	}
+	defer tty.Close()
+
+	fd := int(tty.Fd())
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		return "", fmt.Errorf("connect: cannot set raw terminal mode: %w", err)
+	}
+	defer term.Restore(fd, oldState) //nolint:errcheck
+
+	cursor := 0
+	linesDrawn := 0
+
+	redraw := func() {
+		if linesDrawn > 0 {
+			// Move cursor up to overwrite previous render.
+			fmt.Fprintf(tty, "\033[%dA\r", linesDrawn)
+		}
+		// Erase from cursor to end of screen.
+		fmt.Fprint(tty, "\033[J")
+
+		fmt.Fprint(tty, "Select a host (\u2191\u2191 \u2193\u2193 arrows, Enter to connect, q to quit):\r\n")
+		for i, h := range hosts {
+			desc := h.HostName
+			if h.User != "" {
+				desc = h.User + "@" + h.HostName
+			}
+			if i == cursor {
+				fmt.Fprintf(tty, "  \033[1;36m> %-20s  %s\033[0m\r\n", h.Label, desc)
+			} else {
+				fmt.Fprintf(tty, "    %-20s  %s\r\n", h.Label, desc)
+			}
+		}
+		linesDrawn = len(hosts) + 1
+	}
+
+	redraw()
+
+	buf := make([]byte, 4)
+	for {
+		n, err := tty.Read(buf)
+		if err != nil {
+			return "", fmt.Errorf("connect: read key: %w", err)
+		}
+
+		switch {
+		case n == 1 && (buf[0] == 'q' || buf[0] == 'Q' || buf[0] == 3 /* Ctrl-C */):
+			// Clear the picker before returning.
+			if linesDrawn > 0 {
+				fmt.Fprintf(tty, "\033[%dA\r\033[J", linesDrawn)
+			}
+			return "", errors.New("connect: cancelled")
+
+		case n == 1 && (buf[0] == '\r' || buf[0] == '\n'):
+			// Clear the picker before handing back control.
+			if linesDrawn > 0 {
+				fmt.Fprintf(tty, "\033[%dA\r\033[J", linesDrawn)
+			}
+			return hosts[cursor].Label, nil
+
+		case n >= 3 && buf[0] == 0x1b && buf[1] == '[' && buf[2] == 'A': // cursor up
+			if cursor > 0 {
+				cursor--
+				redraw()
+			}
+
+		case n >= 3 && buf[0] == 0x1b && buf[1] == '[' && buf[2] == 'B': // cursor down
+			if cursor < len(hosts)-1 {
+				cursor++
+				redraw()
+			}
+		}
+	}
 }
 
 // resolveHostTarget returns the hostname and port to use for ssh-keyscan.
