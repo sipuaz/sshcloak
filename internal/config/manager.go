@@ -122,6 +122,11 @@ func (m *Manager) ListHosts() ([]HostSpec, error) {
 	return hosts, nil
 }
 
+// HasHost reports whether the label exists anywhere in the root SSH config tree.
+func (m *Manager) HasHost(label string) (bool, error) {
+	return m.hostExistsInConfigTree(label)
+}
+
 // GetHost returns one editable managed Host block by its exact label.
 func (m *Manager) GetHost(label string) (HostSpec, error) {
 	cfg, err := m.loadManagedConfig()

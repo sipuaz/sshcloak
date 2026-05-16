@@ -124,6 +124,7 @@ $ ssh myserver     # OpenSSH resolves the host via the include file
 |---|---|---|
 | Root SSH config | `~/.ssh/config` | Untouched except for one `Include` line |
 | Managed config | `~/.ssh/sshcloak/config` | All sshcloak host entries |
+| Metadata sidecar | `~/.ssh/sshcloak/meta.yaml` | Host tags and future sshcloak-owned metadata |
 | Vault | `~/.ssh/sshcloak/vault.age` | age-encrypted password store |
 
 All paths can be overridden with global flags — see `sshcloak --help`.

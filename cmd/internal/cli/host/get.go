@@ -21,12 +21,17 @@ func newGetCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("get host: %w", err)
 			}
+			tags, err := getMetadata().Tags(label)
+			if err != nil {
+				return fmt.Errorf("get host: %w", err)
+			}
 
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "Label:    %s\n", host.Label)
 			fmt.Fprintf(out, "HostName: %s\n", host.HostName)
 			fmt.Fprintf(out, "User:     %s\n", host.User)
 			fmt.Fprintf(out, "Port:     %s\n", host.Port)
+			fmt.Fprintf(out, "Tags:     %s\n", joinTags(tags))
 
 			for _, id := range host.IdentityFiles {
 				fmt.Fprintf(out, "IdentityFile: %s\n", id)

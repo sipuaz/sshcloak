@@ -27,7 +27,7 @@ SSH alias (the value after `Host` in the config file).  Wildcards are not
 permitted as labels.
 
 If `~/.ssh/config` does not yet contain an `Include` directive for the managed
-file it is appended automatically.
+file it is added automatically.
 
 **Options**
 
@@ -61,12 +61,14 @@ sshcloak host add prod \
 
 ```
 sshcloak host list
+sshcloak host list --tag production
 ```
 
 **Description**
 
 Print a table of all managed host entries.  Wildcard blocks (e.g. `Host *`)
-are excluded from the output.
+are excluded from the output.  When `--tag` is provided, only hosts whose
+metadata sidecar entry includes that tag are shown.
 
 **Output columns**
 
@@ -76,13 +78,14 @@ are excluded from the output.
 | `HOSTNAME` | `HostName` value |
 | `USER` | `User` value |
 | `PORT` | `Port` value |
+| `TAGS` | Comma-separated tags from `~/.ssh/sshcloak/meta.yaml` |
 
 **Example**
 
 ```
-LABEL     HOSTNAME       USER    PORT
-bastion   203.0.113.1    ops     22
-prod      203.0.113.5    deploy  22
+LABEL     HOSTNAME       USER    PORT  TAGS
+bastion   203.0.113.1    ops     22    edge,jump
+prod      203.0.113.5    deploy  22    production,web
 ```
 
 ---
@@ -105,8 +108,68 @@ Label:          prod
 HostName:       203.0.113.5
 User:           deploy
 Port:           22
+Tags:           production,web
 IdentityFile:   ~/.ssh/id_ed25519
 ProxyJump:      bastion
+```
+
+---
+
+### host tag add
+
+```
+sshcloak host tag add <label> <tag> [<tag>...]
+```
+
+**Description**
+
+Add one or more arbitrary tags to a host label in the sshcloak metadata sidecar
+file at `~/.ssh/sshcloak/meta.yaml`.  The host itself must already exist in the
+SSH config tree.
+
+**Example**
+
+```bash
+sshcloak host tag add prod production web europe
+```
+
+---
+
+### host tag remove
+
+```
+sshcloak host tag remove <label> <tag> [<tag>...]
+```
+
+**Description**
+
+Remove one or more tags from a host label.  When the last tag is removed, the
+sidecar entry is deleted automatically.
+
+**Example**
+
+```bash
+sshcloak host tag remove prod europe
+```
+
+---
+
+### host tag list
+
+```
+sshcloak host tag list <label>
+```
+
+**Description**
+
+Print the tags currently associated with one host label, one tag per line.
+
+**Example**
+
+```bash
+sshcloak host tag list prod
+production
+web
 ```
 
 ---
@@ -180,6 +243,7 @@ These flags are inherited from the root command and apply to all `host` subcomma
 |---|---|---|
 | `--config` | `~/.ssh/config` | Path to the root SSH config file |
 | `--managed-config` | `~/.ssh/sshcloak/config` | Path to the sshcloak-managed include file |
+| `--meta` | `~/.ssh/sshcloak/meta.yaml` | Path to the sshcloak host metadata sidecar file |
 
 ---
 
