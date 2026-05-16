@@ -171,6 +171,32 @@ func newConnectCmd() *cobra.Command {
 	return cmd
 }
 
+// ANSI escape sequences used by the host picker.
+const (
+	ansiCursorUpFmt      = "\033[%dA\r"       // move cursor up N lines and go to column 0
+	ansiEraseDown        = "\033[J"           // erase from cursor to end of screen
+	ansiCursorUpEraseFmt = "\033[%dA\r\033[J" // move up N lines then erase to end of screen
+	ansiColorCyan        = "\033[1;36m"       // bold cyan — used for the selected row
+	ansiColorReset       = "\033[0m"          // reset all SGR attributes
+)
+
+// Unicode symbols used in the host picker prompt.
+const (
+	unicodeArrowUp   = "\u2191" // ↑
+	unicodeArrowDown = "\u2193" // ↓
+)
+
+// Key codes used by the host picker.
+const (
+	keyCtrlC          = 3 // Ctrl-C (ETX)
+	keyCarriageReturn = '\r'
+	keyLineFeed       = '\n'
+	keyEsc            = 0x1b // ESC — start of CSI escape sequences
+	keyCSI            = '['  // CSI introducer that follows ESC
+	keyCursorUp       = 'A'  // final byte of ESC [ A
+	keyCursorDown     = 'B'  // final byte of ESC [ B
+)
+
 // pickHost displays an interactive list of managed hosts in the terminal and
 // returns the label selected by the user.  Navigation: ↑/↓ arrows, Enter to
 // confirm, q to cancel.  The controlling terminal (/dev/tty) is used directly
@@ -195,19 +221,19 @@ func pickHost(hosts []config.HostSpec) (string, error) {
 	redraw := func() {
 		if linesDrawn > 0 {
 			// Move cursor up to overwrite previous render.
-			fmt.Fprintf(tty, "\033[%dA\r", linesDrawn)
+			fmt.Fprintf(tty, ansiCursorUpFmt, linesDrawn)
 		}
 		// Erase from cursor to end of screen.
-		fmt.Fprint(tty, "\033[J")
+		fmt.Fprint(tty, ansiEraseDown)
 
-		fmt.Fprint(tty, "Select a host (\u2191\u2191 \u2193\u2193 arrows, Enter to connect, q to quit):\r\n")
+		fmt.Fprintf(tty, "Select a host (%s %s arrows, Enter to connect, q to quit):\r\n", unicodeArrowUp, unicodeArrowDown)
 		for i, h := range hosts {
 			desc := h.HostName
 			if h.User != "" {
 				desc = h.User + "@" + h.HostName
 			}
 			if i == cursor {
-				fmt.Fprintf(tty, "  \033[1;36m> %-20s  %s\033[0m\r\n", h.Label, desc)
+				fmt.Fprintf(tty, "  %s> %-20s  %s%s\r\n", ansiColorCyan, h.Label, desc, ansiColorReset)
 			} else {
 				fmt.Fprintf(tty, "    %-20s  %s\r\n", h.Label, desc)
 			}
@@ -225,27 +251,27 @@ func pickHost(hosts []config.HostSpec) (string, error) {
 		}
 
 		switch {
-		case n == 1 && (buf[0] == 'q' || buf[0] == 'Q' || buf[0] == 3 /* Ctrl-C */):
+		case n == 1 && (buf[0] == 'q' || buf[0] == 'Q' || buf[0] == keyCtrlC):
 			// Clear the picker before returning.
 			if linesDrawn > 0 {
-				fmt.Fprintf(tty, "\033[%dA\r\033[J", linesDrawn)
+				fmt.Fprintf(tty, ansiCursorUpEraseFmt, linesDrawn)
 			}
 			return "", errors.New("connect: cancelled")
 
-		case n == 1 && (buf[0] == '\r' || buf[0] == '\n'):
+		case n == 1 && (buf[0] == keyCarriageReturn || buf[0] == keyLineFeed):
 			// Clear the picker before handing back control.
 			if linesDrawn > 0 {
-				fmt.Fprintf(tty, "\033[%dA\r\033[J", linesDrawn)
+				fmt.Fprintf(tty, ansiCursorUpEraseFmt, linesDrawn)
 			}
 			return hosts[cursor].Label, nil
 
-		case n >= 3 && buf[0] == 0x1b && buf[1] == '[' && buf[2] == 'A': // cursor up
+		case n >= 3 && buf[0] == keyEsc && buf[1] == keyCSI && buf[2] == keyCursorUp:
 			if cursor > 0 {
 				cursor--
 				redraw()
 			}
 
-		case n >= 3 && buf[0] == 0x1b && buf[1] == '[' && buf[2] == 'B': // cursor down
+		case n >= 3 && buf[0] == keyEsc && buf[1] == keyCSI && buf[2] == keyCursorDown:
 			if cursor < len(hosts)-1 {
 				cursor++
 				redraw()
