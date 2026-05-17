@@ -5,14 +5,15 @@ Open an SSH session with automatic password injection.
 ## Synopsis
 
 ```
-sshcloak connect <label> [-- <ssh-args>...]
+sshcloak connect [<label>] [-- <ssh-args>...]
 ```
 
 ## Description
 
 `sshcloak connect` retrieves the stored password for `<label>` from the encrypted
 vault and opens an SSH session to that host without requiring you to type the
-password manually.
+password manually. If no label is provided, sshcloak shows an interactive host
+picker; `--tag` narrows that picker to hosts carrying one metadata tag.
 
 Internally the command executes:
 
@@ -41,8 +42,15 @@ allocation, signal forwarding, and terminal resize all work as expected.
 
 | Argument | Description |
 |---|---|
-| `<label>` | The sshcloak host label whose password should be injected |
+| `<label>` | Optional sshcloak host label whose password should be injected |
 | `-- <ssh-args>` | Optional extra arguments forwarded verbatim to `ssh` |
+
+## Flags
+
+| Flag | Description |
+|---|---|
+| `--tag <name>` | Filter the interactive picker by one tag when no label is provided |
+| `--debug <0-3>` | Add `-v`, `-vv`, or `-vvv` to the underlying `ssh` invocation |
 
 ## Examples
 
@@ -50,6 +58,12 @@ Basic connection:
 
 ```bash
 sshcloak connect prod
+```
+
+Interactive selection filtered by tag:
+
+```bash
+sshcloak connect --tag stable
 ```
 
 With extra ssh flags (port forwarding, X11 forwarding):
@@ -64,10 +78,12 @@ sshcloak connect prod -- -X -L 8080:localhost:80
 sshcloak connect prod
 ```
 
-1. Prompts for the vault passphrase (no echo).
-2. Unlocks the encrypted vault.
-3. Retrieves the password stored under label `prod`.
-4. Execs: `sshpass -e ssh prod` with `SSHPASS=<password>` in the environment.
+1. Resolves the host label directly, or via the interactive picker when no label was given.
+2. If `--tag` was provided, filters the picker to hosts carrying that tag.
+3. Prompts for the vault passphrase (no echo).
+4. Unlocks the encrypted vault.
+5. Retrieves the password stored under the selected label.
+6. Execs: `sshpass -e ssh <label>` with `SSHPASS=<password>` in the environment.
 
 ## Notes
 

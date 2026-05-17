@@ -32,14 +32,19 @@ import (
 //
 //	sshcloak connect prod -- -X -L 8080:localhost:80
 //
-// When no label is given an interactive host picker is shown.
+// When no label is given an interactive host picker is shown, optionally
+// filtered with --tag.
 // --debug=<1|2|3> adds -v / -vv / -vvv to the underlying ssh invocation.
 func newConnectCmd() *cobra.Command {
 	var debugLevel int
+	var tag string
 
 	cmd := &cobra.Command{
 		Use:   "connect [<label>] [-- <ssh-args>...]",
 		Short: "Open an SSH session with automatic password injection",
+		Example: "  sshcloak connect prod\n" +
+			"  sshcloak connect --tag stable\n" +
+			"  sshcloak connect prod -- -X -L 8080:localhost:80",
 		Long: `Unlock the vault, retrieve the stored password for <label>, and exec:
 
 		sshpass -e ssh <label> [ssh-args...]
@@ -53,7 +58,8 @@ func newConnectCmd() *cobra.Command {
 		~/.ssh/known_hosts — exactly as OpenSSH would.
 
 		When no label is provided an interactive list of managed hosts is shown;
-		use ↑/↓ to navigate, Enter to select, and q to cancel.
+		use ↑/↓ to navigate, Enter to select, and q to cancel.  Use --tag to
+		filter that picker by one metadata tag.
 
 		sshpass must be installed:
 		apt install sshpass
@@ -82,8 +88,28 @@ func newConnectCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("connect: list hosts: %w", err)
 				}
+				if tag != "" {
+					labels, err := host.GetMetadata().TaggedHosts(tag)
+					if err != nil {
+						return fmt.Errorf("connect: filter hosts by tag: %w", err)
+					}
+					allowed := make(map[string]struct{}, len(labels))
+					for _, label := range labels {
+						allowed[label] = struct{}{}
+					}
+					filtered := make([]config.HostSpec, 0, len(hosts))
+					for _, candidate := range hosts {
+						if _, ok := allowed[candidate.Label]; ok {
+							filtered = append(filtered, candidate)
+						}
+					}
+					hosts = filtered
+				}
 				if len(hosts) == 0 {
-					return errors.New("connect: no managed hosts found; add one with 'sshcloak host add'")
+					if tag == "" {
+						return errors.New("connect: no managed hosts found; add one with 'sshcloak host add'")
+					}
+					return fmt.Errorf("connect: no managed hosts found with tag %q", tag)
 				}
 				label, err = pickHost(hosts)
 				if err != nil {
@@ -167,6 +193,7 @@ func newConnectCmd() *cobra.Command {
 	}
 
 	cmd.Flags().IntVar(&debugLevel, "debug", 0, "SSH verbosity level: 1=-v, 2=-vv, 3=-vvv")
+	cmd.Flags().StringVar(&tag, "tag", "", "filter the interactive host picker by one tag when no label is specified")
 
 	return cmd
 }
