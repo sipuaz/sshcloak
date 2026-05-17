@@ -10,60 +10,84 @@ import (
 	"github.com/sipuaz/sshcloak/internal/config"
 )
 
-var fileHandler = config.NewFileHandler()
-
-const testPath = "../resources/ssh_mock_config"
+// testFilePath returns a per-test temp file path so each test is isolated and
+// self-contained with no dependency on a pre-existing resource file.
+func testFilePath(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), "ssh_mock_config")
+}
 
 func TestFileHandler_Read(t *testing.T) {
-	data, err := fileHandler.Read(testPath)
-	if err != nil {
-		t.Fatalf("Failed to read file: %v", err)
+	path := testFilePath(t)
+	want := []byte("Host test\n  HostName test.example.com\n")
+	if err := os.WriteFile(path, want, 0600); err != nil {
+		t.Fatalf("setup write: %v", err)
 	}
-	if len(data) == 0 {
-		t.Fatalf("File is empty")
+
+	handler := config.NewFileHandler()
+	data, err := handler.Read(path)
+	if err != nil {
+		t.Fatalf("Read() error: %v", err)
+	}
+	if string(data) != string(want) {
+		t.Fatalf("Read() = %q, want %q", data, want)
 	}
 }
 
 func TestFileHandler_Write(t *testing.T) {
+	path := testFilePath(t)
 	testData := []byte("Test data for write")
-	err := fileHandler.Write(testPath, testData, 0644)
-	if err != nil {
-		t.Fatalf("Failed to write to file: %v", err)
+
+	handler := config.NewFileHandler()
+	if err := handler.Write(path, testData, 0600); err != nil {
+		t.Fatalf("Write() error: %v", err)
 	}
 
-	// Verify that the data was written correctly
-	data, err := fileHandler.Read(testPath)
+	data, err := handler.Read(path)
 	if err != nil {
-		t.Fatalf("Failed to read file after write: %v", err)
+		t.Fatalf("Read() after Write() error: %v", err)
 	}
-	if string(data[len(data)-len(testData):]) != string(testData) {
-		t.Fatalf("Data was not written correctly")
+	if string(data) != string(testData) {
+		t.Fatalf("Write() stored %q, want %q", data, testData)
 	}
 }
 
 func TestFileHandler_Append(t *testing.T) {
-	testData := []byte("Test data for append")
-	err := fileHandler.Append(testPath, testData)
-	if err != nil {
-		t.Fatalf("Failed to append to file: %v", err)
+	path := testFilePath(t)
+	initial := []byte("initial\n")
+	appended := []byte("appended\n")
+
+	handler := config.NewFileHandler()
+	if err := handler.Write(path, initial, 0600); err != nil {
+		t.Fatalf("Write() setup error: %v", err)
+	}
+	if err := handler.Append(path, appended); err != nil {
+		t.Fatalf("Append() error: %v", err)
 	}
 
-	// Verify that the data was appended correctly
-	data, err := fileHandler.Read(testPath)
+	data, err := handler.Read(path)
 	if err != nil {
-		t.Fatalf("Failed to read file after append: %v", err)
+		t.Fatalf("Read() after Append() error: %v", err)
 	}
-	if string(data[len(data)-len(testData):]) != string(testData) {
-		t.Fatalf("Data was not appended correctly")
+	want := string(initial) + string(appended)
+	if string(data) != want {
+		t.Fatalf("Append() result = %q, want %q", data, want)
 	}
 }
 
 func TestFileHandler_Exists(t *testing.T) {
-	if !fileHandler.Exists(testPath) {
-		t.Fatalf("File should exist: %v", testPath)
+	path := testFilePath(t)
+
+	handler := config.NewFileHandler()
+	if handler.Exists(path) {
+		t.Fatal("Exists() returned true for a file that has not been created yet")
 	}
-	if fileHandler.Exists("non_existent_file") {
-		t.Fatalf("File should not exist: %v", "non_existent_file")
+
+	if err := os.WriteFile(path, []byte("x"), 0600); err != nil {
+		t.Fatalf("setup write: %v", err)
+	}
+	if !handler.Exists(path) {
+		t.Fatal("Exists() returned false for an existing file")
 	}
 }
 
