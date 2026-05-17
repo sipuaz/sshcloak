@@ -52,6 +52,12 @@ func getMetadata() *metadata.Store {
 	return sharedMetadata
 }
 
+// GetMetadata returns the injected metadata store for sibling command packages
+// that need to share the same application context.
+func GetMetadata() *metadata.Store {
+	return getMetadata()
+}
+
 // NewHostCmd returns the parent "host" command.  It has no Run of its own;
 // running "sshcloak host" without a sub-command prints usage automatically.
 func NewHostCmd() *cobra.Command {
