@@ -1,7 +1,6 @@
 # sshcloak
 
-`ssh myserver`. That's it. No password prompt, no proprietary config, no subscription.  
-Your `~/.ssh/config` stays exactly as you wrote it — sshcloak manages host entries through a dedicated include file and injects passwords from an age-encrypted vault.
+Cloak your SSH connections — `sshcloak` manages hosts, encrypts credentials, and connects with a single command.
 
 ---
 
