@@ -19,14 +19,18 @@ import (
 )
 
 // newConnectCmd returns the "sshcloak connect" command.
-// It unlocks the vault, retrieves the stored password for the given host label,
-// ensures the host key is trusted (prompting the user if it is new), and then
-// replaces the current process with:
+// It tries to retrieve a stored password for the given host label, ensures the
+// host key is trusted (prompting the user if it is new), and then replaces the
+// current process with either:
 //
 //	sshpass -e ssh <label> [extra-ssh-args...]
 //
+// or, when no password is stored for <label>:
+//
+//	ssh <label> [extra-ssh-args...]
+//
 // The password is passed via the SSHPASS environment variable so it does not
-// appear in the process list.  sshpass must be installed and on PATH.
+// appear in the process list.
 //
 // Extra arguments to ssh can be appended after a double-dash separator:
 //
@@ -41,17 +45,21 @@ func newConnectCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "connect [<label>] [-- <ssh-args>...]",
-		Short: "Open an SSH session with automatic password injection",
+		Short: "Open an SSH session with optional automatic password injection",
 		Example: "  sshcloak connect prod\n" +
 			"  sshcloak connect --tag stable\n" +
 			"  sshcloak connect prod -- -X -L 8080:localhost:80",
-		Long: `Unlock the vault, retrieve the stored password for <label>, and exec:
+		Long: `Retrieve the stored password for <label> when available, then exec:
 
 		sshpass -e ssh <label> [ssh-args...]
 
-		The password is passed to sshpass via the SSHPASS environment variable to
-		keep it out of the process list.  Any arguments after -- are forwarded
-		unchanged to ssh.
+		If no password is stored for <label>, sshcloak falls back to plain:
+
+		ssh <label> [ssh-args...]
+
+		When password injection is used, the password is passed to sshpass via the
+		SSHPASS environment variable to keep it out of the process list. Any
+		arguments after -- are forwarded unchanged to ssh.
 
 		If the host key is not yet trusted, sshcloak fetches it via ssh-keyscan,
 		displays the fingerprint, and asks for confirmation before adding it to
@@ -61,7 +69,7 @@ func newConnectCmd() *cobra.Command {
 		use ↑/↓ to navigate, Enter to select, and q to cancel.  Use --tag to
 		filter that picker by one metadata tag.
 
-		sshpass must be installed:
+		sshpass is required only when a stored password exists for the selected host:
 		apt install sshpass
 		brew install hudochenkov/sshpass/sshpass
 		dnf install sshpass`,
@@ -119,17 +127,6 @@ func newConnectCmd() *cobra.Command {
 				label = labelArgs[0]
 			}
 
-			// Locate sshpass early so we fail before prompting for the passphrase.
-			sshpassPath, err := exec.LookPath("sshpass")
-			if err != nil {
-				return errors.New(
-					"sshpass not found in PATH\n" +
-						"  apt install sshpass\n" +
-						"  brew install hudochenkov/sshpass/sshpass\n" +
-						"  dnf install sshpass",
-				)
-			}
-
 			sshPath, err := exec.LookPath("ssh")
 			if err != nil {
 				return errors.New("ssh not found in PATH")
@@ -140,7 +137,7 @@ func newConnectCmd() *cobra.Command {
 			checkHostname, checkPort := resolveHostTarget(label)
 
 			// Ensure the host key is present in known_hosts before handing off
-			// to sshpass (which cannot handle interactive fingerprint prompts).
+			// to ssh/sshpass.
 			if err := ensureKnownHost(checkHostname, checkPort); err != nil {
 				return err
 			}
@@ -160,35 +157,53 @@ func newConnectCmd() *cobra.Command {
 			// deferred calls do not run — that is intentional and safe.
 
 			record, err := store.Get(label, keyring.SecretKindPassword)
+			usePassword := true
+			password := ""
+			if err != nil {
+				if errors.Is(err, keyring.ErrSecretNotFound) {
+					usePassword = false
+				} else {
+					store.Lock()
+					return fmt.Errorf("connect: retrieve password: %w", err)
+				}
+			} else {
+				password = record.Value
+			}
+
+			sshpassPath := ""
+			if usePassword {
+				// Locate sshpass only when password injection is needed.
+				sshpassPath, err = exec.LookPath("sshpass")
+				if err != nil {
+					store.Lock()
+					return errors.New(
+						"sshpass not found in PATH\n" +
+							"  apt install sshpass\n" +
+							"  brew install hudochenkov/sshpass/sshpass\n" +
+							"  dnf install sshpass",
+					)
+				}
+			}
+
+			program, argv, env, err := buildConnectExecPlan(
+				sshPath,
+				sshpassPath,
+				label,
+				debugLevel,
+				extraSSHArgs,
+				os.Environ(),
+				password,
+				usePassword,
+			)
 			if err != nil {
 				store.Lock()
-				return fmt.Errorf("connect: retrieve password: %w", err)
+				return err
 			}
 
-			// Build the base ssh arguments.
-			// StrictHostKeyChecking=yes is safe here because ensureKnownHost has
-			// already verified and recorded the key.
-			sshArgs := []string{sshPath, "-o", "StrictHostKeyChecking=yes"}
-
-			// Append -v / -vv / -vvv when a debug level was requested.
-			if debugLevel > 0 {
-				sshArgs = append(sshArgs, "-"+strings.Repeat("v", debugLevel))
-			}
-
-			sshArgs = append(sshArgs, label)
-			sshArgs = append(sshArgs, extraSSHArgs...)
-
-			// Build argv for sshpass.
-			argv := append([]string{"sshpass", "-e"}, sshArgs...)
-
-			// Inject the password via environment — not via a -p flag — so it
-			// does not appear in the output of `ps`.
-			env := append(os.Environ(), "SSHPASS="+record.Value)
-
-			// Replace this process entirely.  The SSH session inherits the
+			// Replace this process entirely. The SSH session inherits the
 			// current terminal, so interactive usage (pty, signals, resize)
 			// all work correctly.
-			return syscall.Exec(sshpassPath, argv, env)
+			return syscall.Exec(program, argv, env)
 		},
 	}
 
@@ -196,6 +211,49 @@ func newConnectCmd() *cobra.Command {
 	cmd.Flags().StringVar(&tag, "tag", "", "filter the interactive host picker by one tag when no label is specified")
 
 	return cmd
+}
+
+// buildConnectExecPlan returns the final program, argv, and env for connect.
+// In password mode it wraps ssh with sshpass and injects SSHPASS.
+func buildConnectExecPlan(
+	sshPath, sshpassPath, label string,
+	debugLevel int,
+	extraSSHArgs, baseEnv []string,
+	password string,
+	usePassword bool,
+) (program string, argv, env []string, err error) {
+	sshArgs := buildSSHInvocation(sshPath, label, debugLevel, extraSSHArgs)
+	env = append([]string(nil), baseEnv...)
+
+	if !usePassword {
+		return sshPath, sshArgs, env, nil
+	}
+	if sshpassPath == "" {
+		return "", nil, nil, errors.New("connect: sshpass path is required in password mode")
+	}
+	if password == "" {
+		return "", nil, nil, errors.New("connect: empty password for password mode")
+	}
+
+	argv = append([]string{"sshpass", "-e"}, sshArgs...)
+	env = append(env, "SSHPASS="+password)
+	return sshpassPath, argv, env, nil
+}
+
+// buildSSHInvocation returns argv for direct ssh execution.
+func buildSSHInvocation(sshPath, label string, debugLevel int, extraSSHArgs []string) []string {
+	// StrictHostKeyChecking=yes is safe here because ensureKnownHost has already
+	// verified and recorded the key.
+	sshArgs := []string{sshPath, "-o", "StrictHostKeyChecking=yes"}
+
+	// Append -v / -vv / -vvv when a debug level was requested.
+	if debugLevel > 0 {
+		sshArgs = append(sshArgs, "-"+strings.Repeat("v", debugLevel))
+	}
+
+	sshArgs = append(sshArgs, label)
+	sshArgs = append(sshArgs, extraSSHArgs...)
+	return sshArgs
 }
 
 // ANSI escape sequences used by the host picker.

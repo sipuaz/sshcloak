@@ -60,14 +60,53 @@ jobs:
         env:
           VERSION: ${{ steps.ver.outputs.value }}
         run: |
-          # Collect all semver tags, ignoring the rolling 'dev' label.
-          LATEST=$(git tag --list 'v*' | grep -v '^dev$' | sort -V | tail -1)
+          # Compare tags using semver precedence:
+          # vX.Y.Z > vX.Y.Z-alpha.N and higher major/minor/patch always wins.
+          readonly STABILITY_PRERELEASE=0
+          readonly STABILITY_STABLE=1
+          readonly NO_PRERELEASE_NUMBER=0
+
+          parse_semver() {
+            local v="${1#v}"
+            if [[ "$v" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]} ${BASH_REMATCH[3]} $STABILITY_STABLE $NO_PRERELEASE_NUMBER"
+              return 0
+            fi
+            if [[ "$v" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)-alpha\.([0-9]+)$ ]]; then
+              echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]} ${BASH_REMATCH[3]} $STABILITY_PRERELEASE ${BASH_REMATCH[4]}"
+              return 0
+            fi
+            return 1
+          }
+
+          semver_gt() {
+            local left_major left_minor left_patch left_is_stable left_prerelease_num
+            local right_major right_minor right_patch right_is_stable right_prerelease_num
+
+            read -r left_major left_minor left_patch left_is_stable left_prerelease_num <<<"$(parse_semver "$1")" || return 1
+            read -r right_major right_minor right_patch right_is_stable right_prerelease_num <<<"$(parse_semver "$2")" || return 1
+
+            if (( left_major != right_major )); then (( left_major > right_major )); return; fi
+            if (( left_minor != right_minor )); then (( left_minor > right_minor )); return; fi
+            if (( left_patch != right_patch )); then (( left_patch > right_patch )); return; fi
+            if (( left_is_stable != right_is_stable )); then (( left_is_stable > right_is_stable )); return; fi
+            (( left_prerelease_num > right_prerelease_num ))
+          }
+
+          LATEST=""
+          while IFS= read -r tag; do
+            parse_semver "$tag" >/dev/null || continue
+            if [[ -z "$LATEST" ]] || semver_gt "$tag" "$LATEST"; then
+              LATEST="$tag"
+            fi
+          done < <(git tag --list 'v*' | grep -v '^dev$')
+
           if [[ -z "$LATEST" ]]; then
             echo "No existing semver tags — first release, skipping monotonicity check."
             exit 0
           fi
-          HIGHEST=$(printf '%s\n%s\n' "$LATEST" "$VERSION" | sort -V | tail -1)
-          if [[ "$HIGHEST" != "$VERSION" || "$VERSION" == "$LATEST" ]]; then
+
+          if ! semver_gt "$VERSION" "$LATEST"; then
             echo "::error::$VERSION is not greater than the latest tag $LATEST"
             exit 1
           fi
