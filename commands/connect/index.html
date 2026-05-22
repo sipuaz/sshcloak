@@ -693,23 +693,31 @@
 
 
 <h1 id="connect">connect<a class="headerlink" href="#connect" title="Permanent link">&para;</a></h1>
-<p>Open an SSH session with automatic password injection.</p>
+<p>Open an SSH session with optional automatic password injection.</p>
 <h2 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h2>
 <p><code>sshcloak connect [&lt;label&gt;] [-- &lt;ssh-args&gt;...]</code></p>
 <h2 id="description">Description<a class="headerlink" href="#description" title="Permanent link">&para;</a></h2>
-<p><code>sshcloak connect</code> retrieves the stored password for <code>&lt;label&gt;</code> from the encrypted
-vault and opens an SSH session to that host without requiring you to type the
-password manually. If no label is provided, sshcloak shows an interactive host
-picker; <code>--tag</code> narrows that picker to hosts carrying one metadata tag.</p>
+<p><code>sshcloak connect</code> attempts to retrieve a stored password for <code>&lt;label&gt;</code> from the
+encrypted vault.</p>
+<ul>
+<li>If a password is found, it opens SSH through <code>sshpass</code> so password entry is automatic.</li>
+<li>If no password is stored for that label, it falls back to plain <code>ssh</code> (key-based auth,
+  agent auth, or interactive auth continue to work as normal).</li>
+</ul>
+<p>If no label is provided, sshcloak shows an interactive host picker; <code>--tag</code>
+narrows that picker to hosts carrying one metadata tag.</p>
 <p>Internally the command executes:</p>
 <p><code>sshpass -e ssh &lt;label&gt; [ssh-args...]</code></p>
+<p>or, when no stored password exists:</p>
+<p><code>ssh &lt;label&gt; [ssh-args...]</code></p>
 <p>The password is passed to <code>sshpass</code> via the <code>SSHPASS</code> environment variable so
 it <strong>does not appear in the process list</strong> (unlike <code>sshpass -p</code>).</p>
-<p>Because <code>sshcloak connect</code> replaces the current process with <code>sshpass</code> +
-<code>ssh</code> (via <code>execve</code>), the SSH session inherits the terminal directly — PTY
-allocation, signal forwarding, and terminal resize all work as expected.</p>
+<p>Because <code>sshcloak connect</code> replaces the current process with <code>ssh</code> (or
+<code>sshpass</code> + <code>ssh</code>) via <code>execve</code>, the SSH session inherits the terminal
+directly — PTY allocation, signal forwarding, and terminal resize all work as
+expected.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
-<p><code>sshpass</code> must be installed and on your <code>$PATH</code>:</p>
+<p><code>sshpass</code> must be installed and on your <code>$PATH</code> only when password injection is used:</p>
 <table>
 <thead>
 <tr>
@@ -787,20 +795,18 @@ sshcloak connect prod -- -X -L 8080:localhost:80</code></p>
 <li>If <code>--tag</code> was provided, filters the picker to hosts carrying that tag.</li>
 <li>Prompts for the vault passphrase (no echo).</li>
 <li>Unlocks the encrypted vault.</li>
-<li>Retrieves the password stored under the selected label.</li>
-<li>Execs: <code>sshpass -e ssh &lt;label&gt;</code> with <code>SSHPASS=&lt;password&gt;</code> in the environment.</li>
+<li>If a password is stored for the selected label, execs: <code>sshpass -e ssh &lt;label&gt;</code>
+  with <code>SSHPASS=&lt;password&gt;</code> in the environment.</li>
+<li>If no password is stored, falls back to plain <code>ssh &lt;label&gt;</code>.</li>
 </ol>
 <h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h2>
 <ul>
-<li>A password must already be stored with <code>sshcloak password set &lt;label&gt;</code> before
-  <code>connect</code> can inject it.</li>
+<li>A password stored with <code>sshcloak password set &lt;label&gt;</code> is optional. It enables
+  automatic password injection for that label.</li>
 <li>The host entry must be resolvable by SSH — either via the sshcloak-managed
   include file or your existing <code>~/.ssh/config</code>.</li>
-<li><code>connect</code> does not fall back to interactive password entry if no vault record
-  exists; it exits with an error so that <code>sshpass</code> is never invoked without a
-  known password.</li>
-<li>To use key-based authentication without password injection, connect with
-  plain <code>ssh &lt;label&gt;</code> as usual.</li>
+<li>When no password record exists for a label, <code>connect</code> runs plain <code>ssh</code> and
+  lets your normal SSH authentication methods apply (IdentityFile, agent, etc.).</li>
 </ul>
 
 
