@@ -60,6 +60,7 @@ nav:
   - Commands:
       - connect: commands/connect.md
       - host: commands/host.md
+      - session: commands/session.md
       - vault: commands/vault.md
       - password: commands/password.md
   - Internals: internals.md

@@ -18,9 +18,13 @@ The vault is a single file encrypted with [age](https://age-encryption.org/)
 using scrypt passphrase derivation.  It stores all SSH passwords managed by
 sshcloak.  The default location is `~/.ssh/sshcloak/vault.age`.
 
-The vault is locked at rest.  Every command that reads or writes secrets
-prompts for the passphrase, unlocks the vault in memory, performs its
-operation, then locks the vault again before exiting.
+The vault is locked at rest. Commands that read or write secrets unlock the
+vault in memory for their operation only.
+
+With default session caching enabled, the first vault-access command in a shell
+session prompts for the passphrase and subsequent commands reuse the cached
+unlock until `--session-ttl` expires. Use `--no-session-cache` to force a
+prompt on every command.
 
 For a fresh installation, use [`sshcloak init`](../getting-started.md) to
 bootstrap both the SSH include file and the vault in one step.
@@ -88,6 +92,8 @@ vault passphrase rotated
 | Flag | Default | Description |
 |---|---|---|
 | `--vault` | `~/.ssh/sshcloak/vault.age` | Path to the encrypted vault file |
+| `--session-ttl` | `15m` | Duration before cached vault unlock expires |
+| `--no-session-cache` | `false` | Disable session cache and prompt every command |
 
 ---
 
@@ -113,3 +119,4 @@ vault passphrase rotated
 
 - [password](password.md) — store and retrieve SSH passwords
 - [host](host.md) — manage SSH host entries
+- [session](session.md) — inspect and clear session unlock cache

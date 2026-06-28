@@ -15,9 +15,12 @@ sshcloak password <subcommand> [label]
 ## Description
 
 Each password is associated with a host `label` — the same alias used in
-`sshcloak host add`.  Every subcommand prompts for the vault passphrase
-interactively, unlocks the vault, performs its operation, and locks the vault
-before returning.
+`sshcloak host add`.
+
+With default session caching enabled, the first vault-access command in a shell
+session prompts for the vault passphrase, and subsequent commands reuse the
+cached unlock until `--session-ttl` expires. Use `--no-session-cache` to force
+prompting on every command.
 
 ---
 
@@ -134,6 +137,8 @@ staging
 | Flag | Default | Description |
 |---|---|---|
 | `--vault` | `~/.ssh/sshcloak/vault.age` | Path to the encrypted vault file |
+| `--session-ttl` | `15m` | Duration before cached vault unlock expires |
+| `--no-session-cache` | `false` | Disable session cache and prompt every command |
 
 ---
 

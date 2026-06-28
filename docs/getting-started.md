@@ -102,6 +102,11 @@ SSH password for "myserver":
 password stored for "myserver"
 ```
 
+By default, vault unlock is cached per shell session for 15 minutes, so you do
+not need to re-enter the vault passphrase on every command. Disable it per
+command with `--no-session-cache`, and inspect/clear cache with
+`sshcloak session status|lock|clear`.
+
 ### 4 — Verify
 
 ```
