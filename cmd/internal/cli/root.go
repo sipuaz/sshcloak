@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/host"
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/password"
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
@@ -15,7 +17,6 @@ import (
 	"github.com/sipuaz/sshcloak/internal/keyring"
 	"github.com/sipuaz/sshcloak/internal/metadata"
 	"github.com/sipuaz/sshcloak/internal/session"
-	"github.com/spf13/cobra"
 )
 
 // Execute builds the root command and runs it.  It is the only entry point

@@ -3,9 +3,10 @@
 package host
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/sipuaz/sshcloak/internal/config"
 	"github.com/sipuaz/sshcloak/internal/metadata"
-	"github.com/spf13/cobra"
 )
 
 // SetManager stores the manager on the root command's annotation map so it

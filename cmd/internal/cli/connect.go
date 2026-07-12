@@ -10,12 +10,13 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/host"
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
 	"github.com/sipuaz/sshcloak/internal/config"
 	"github.com/sipuaz/sshcloak/internal/keyring"
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 // newConnectCmd returns the "sshcloak connect" command.

@@ -3,8 +3,9 @@ package host
 import (
 	"fmt"
 
-	"github.com/sipuaz/sshcloak/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/sipuaz/sshcloak/internal/config"
 )
 
 // newEditCmd returns the "sshcloak host edit <label>" command.

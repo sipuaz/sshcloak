@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sipuaz/sshcloak/internal/session"
 	"github.com/spf13/cobra"
+
+	"github.com/sipuaz/sshcloak/internal/session"
 )
 
 // newSessionAgentCmd starts the hidden local session-agent process.

@@ -9,8 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sipuaz/sshcloak/internal/config"
 	"go.yaml.in/yaml/v3"
+
+	"github.com/sipuaz/sshcloak/internal/config"
 )
 
 const (

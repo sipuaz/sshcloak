@@ -3,8 +3,9 @@ package cli
 import (
 	"fmt"
 
-	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
 	"github.com/spf13/cobra"
+
+	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
 )
 
 // newSessionCmd returns the "sshcloak session" command group.

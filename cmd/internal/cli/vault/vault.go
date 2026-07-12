@@ -5,9 +5,10 @@ package vault
 import (
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/sipuaz/sshcloak/internal/keyring"
 	"github.com/sipuaz/sshcloak/internal/session"
-	"github.com/spf13/cobra"
 )
 
 // sharedStore is the vault store instance injected by root.PersistentPreRunE.

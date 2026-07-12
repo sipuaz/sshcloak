@@ -5,8 +5,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/sipuaz/sshcloak/internal/keyring"
 	"golang.org/x/term"
+
+	"github.com/sipuaz/sshcloak/internal/keyring"
 )
 
 // UnlockStore unlocks the shared vault store, using session cache when enabled.
