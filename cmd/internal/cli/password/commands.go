@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sipuaz/sshcloak/internal/keyring"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+
+	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
+	"github.com/sipuaz/sshcloak/internal/keyring"
 )
 
 // newSetCmd returns "sshcloak password set <label>".
@@ -21,18 +23,13 @@ password for the given host label, store it, and lock the vault.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			label := args[0]
 
-			vaultPass, err := readPassphrase("Vault passphrase: ")
+			store, err := vault.UnlockStore("Vault passphrase: ")
 			if err != nil {
-				return err
-			}
-
-			store := getStore()
-			if err := store.Unlock(vaultPass); err != nil {
 				return fmt.Errorf("password set: %w", err)
 			}
 			defer store.Lock()
 
-			sshPass, err := readPassphrase(fmt.Sprintf("SSH password for %q: ", label))
+			sshPass, err := readPasswordPrompt(fmt.Sprintf("SSH password for %q: ", label))
 			if err != nil {
 				return err
 			}
@@ -66,13 +63,8 @@ with a trailing newline so it can be captured in a sub-shell.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			label := args[0]
 
-			vaultPass, err := readPassphrase("Vault passphrase: ")
+			store, err := vault.UnlockStore("Vault passphrase: ")
 			if err != nil {
-				return err
-			}
-
-			store := getStore()
-			if err := store.Unlock(vaultPass); err != nil {
 				return fmt.Errorf("password get: %w", err)
 			}
 			defer store.Lock()
@@ -98,13 +90,8 @@ func newDeleteCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			label := args[0]
 
-			vaultPass, err := readPassphrase("Vault passphrase: ")
+			store, err := vault.UnlockStore("Vault passphrase: ")
 			if err != nil {
-				return err
-			}
-
-			store := getStore()
-			if err := store.Unlock(vaultPass); err != nil {
 				return fmt.Errorf("password delete: %w", err)
 			}
 			defer store.Lock()
@@ -126,13 +113,8 @@ func newListCmd() *cobra.Command {
 		Short: "List all labels that have a stored password",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			vaultPass, err := readPassphrase("Vault passphrase: ")
+			store, err := vault.UnlockStore("Vault passphrase: ")
 			if err != nil {
-				return err
-			}
-
-			store := getStore()
-			if err := store.Unlock(vaultPass); err != nil {
 				return fmt.Errorf("password list: %w", err)
 			}
 			defer store.Lock()
@@ -158,13 +140,13 @@ func newListCmd() *cobra.Command {
 	}
 }
 
-// readPassphrase prompts on stderr and reads a passphrase without echo.
-func readPassphrase(prompt string) (string, error) {
+// readPasswordPrompt prompts for the SSH password value without echoing input.
+func readPasswordPrompt(prompt string) (string, error) {
 	fmt.Fprint(os.Stderr, prompt)
 	raw, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Fprintln(os.Stderr)
 	if err != nil {
-		return "", fmt.Errorf("reading passphrase: %w", err)
+		return "", fmt.Errorf("reading password: %w", err)
 	}
 	return string(raw), nil
 }

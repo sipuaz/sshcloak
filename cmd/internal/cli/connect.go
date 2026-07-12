@@ -10,12 +10,13 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/host"
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
 	"github.com/sipuaz/sshcloak/internal/config"
 	"github.com/sipuaz/sshcloak/internal/keyring"
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 // newConnectCmd returns the "sshcloak connect" command.
@@ -142,14 +143,8 @@ func newConnectCmd() *cobra.Command {
 				return err
 			}
 
-			// Prompt for the vault passphrase (reads directly from the terminal).
-			vaultPass, err := readConnectPassphrase("Vault passphrase: ")
+			store, err := vault.UnlockStore("Vault passphrase: ")
 			if err != nil {
-				return err
-			}
-
-			store := vault.GetStore()
-			if err := store.Unlock(vaultPass); err != nil {
 				return fmt.Errorf("connect: unlock vault: %w", err)
 			}
 			// Lock zeroes the in-memory passphrase; call it on any error path.
@@ -457,21 +452,4 @@ func ensureKnownHost(hostname, port string) error {
 
 	fmt.Fprintf(os.Stderr, "Warning: Permanently added '%s' to the list of known hosts.\n", lookupTarget)
 	return nil
-}
-
-// readConnectPassphrase reads a passphrase from the controlling terminal without
-// echo.  It is a thin wrapper around term.ReadPassword so connect.go does not
-// depend on init.go internals.
-func readConnectPassphrase(prompt string) (string, error) {
-	fd := int(os.Stdin.Fd())
-	if !term.IsTerminal(fd) {
-		return "", errors.New("connect: stdin is not a terminal; cannot read vault passphrase")
-	}
-	fmt.Fprint(os.Stderr, prompt)
-	raw, err := term.ReadPassword(fd)
-	fmt.Fprintln(os.Stderr)
-	if err != nil {
-		return "", fmt.Errorf("connect: read passphrase: %w", err)
-	}
-	return string(raw), nil
 }

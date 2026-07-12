@@ -10,7 +10,8 @@ VERSION_VAR := github.com/sipuaz/sshcloak/cmd/internal/cli.Version
 VERSION     := $(shell cat VERSION 2>/dev/null | tr -d '[:space:]' || git describe --tags --always)
 BUILD_FLAGS := -ldflags "-X $(VERSION_VAR)=$(VERSION)"
 
-.PHONY: all build test test-integration install uninstall clean init \
+
+.PHONY: all build test test-integration tidy lint release-build install uninstall clean init \
 	docs-install docs-serve docs-build docs-deploy
 .PHONY: install-user
 
@@ -27,6 +28,20 @@ test:
 ## test-integration: run unit tests + integration tests for all packages
 test-integration:
 	go test -tags integration ./...
+
+## tidy: ensure go.mod and go.sum are normalized
+tidy:
+	go mod tidy
+
+## lint: run static checks and formatting linters
+lint:
+	golangci-lint run ./...
+
+## release-build: build a platform-specific release artifact (requires GOOS/GOARCH)
+release-build:
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) \
+		go build -ldflags "-X $(VERSION_VAR)=$(VERSION)" \
+		-o $(BINARY)-$(GOOS)-$(GOARCH) $(CMD)
 
 ## install: build and install the binary to /usr/local/bin
 install: build

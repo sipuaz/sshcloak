@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/host"
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/password"
@@ -13,7 +16,7 @@ import (
 	"github.com/sipuaz/sshcloak/internal/config"
 	"github.com/sipuaz/sshcloak/internal/keyring"
 	"github.com/sipuaz/sshcloak/internal/metadata"
-	"github.com/spf13/cobra"
+	"github.com/sipuaz/sshcloak/internal/session"
 )
 
 // Execute builds the root command and runs it.  It is the only entry point
@@ -29,6 +32,8 @@ func newRootCmd() *cobra.Command {
 	var managedConfigPath string
 	var metaPath string
 	var vaultPath string
+	var sessionTTL time.Duration
+	var disableSessionCache bool
 
 	root := &cobra.Command{
 		Use:     "sshcloak",
@@ -65,6 +70,18 @@ keyring and manages host entries in ~/.ssh/config via a dedicated include file.`
 		defaultMetaPath(),
 		"path to the sshcloak host metadata file",
 	)
+	root.PersistentFlags().DurationVar(
+		&sessionTTL,
+		"session-ttl",
+		15*time.Minute,
+		"duration before cached vault unlock expires",
+	)
+	root.PersistentFlags().BoolVar(
+		&disableSessionCache,
+		"no-session-cache",
+		false,
+		"disable sudo-like vault unlock cache and prompt every command",
+	)
 
 	// Build the shared app context after flags have been parsed.
 	// PersistentPreRunE runs before every sub-command's Run.
@@ -79,6 +96,15 @@ keyring and manages host entries in ~/.ssh/config via a dedicated include file.`
 
 		store := keyring.NewFileVaultStore(vaultPath)
 		vault.SetStore(cmd, store)
+		socketPath, err := session.DefaultSocketPath(vaultPath)
+		if err != nil {
+			return fmt.Errorf("resolve session socket path: %w", err)
+		}
+		vault.SetSession(cmd, vault.SessionConfig{
+			Enabled: !disableSessionCache,
+			TTL:     sessionTTL,
+			Client:  session.NewClient(socketPath, sessionTTL),
+		})
 
 		return nil
 	}
@@ -87,6 +113,8 @@ keyring and manages host entries in ~/.ssh/config via a dedicated include file.`
 	root.AddCommand(
 		newInitCmd(),
 		newConnectCmd(),
+		newSessionCmd(),
+		newSessionAgentCmd(),
 		newVersionCmd(),
 		host.NewHostCmd(),
 		vault.NewVaultCmd(),

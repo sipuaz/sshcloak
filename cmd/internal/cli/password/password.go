@@ -1,10 +1,7 @@
 // Package password implements the "sshcloak password" command group.
 package password
 
-import (
-	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
-	"github.com/spf13/cobra"
-)
+import "github.com/spf13/cobra"
 
 // NewPasswordCmd returns the parent "password" command.
 func NewPasswordCmd() *cobra.Command {
@@ -23,7 +20,3 @@ func NewPasswordCmd() *cobra.Command {
 
 	return cmd
 }
-
-// getStore is a convenience alias so sub-commands in this package can access
-// the vault store without importing the vault package internals directly.
-var getStore = vault.GetStore

@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sipuaz/sshcloak/cmd/internal/cli/host"
-	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+
+	"github.com/sipuaz/sshcloak/cmd/internal/cli/host"
+	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
 )
 
 // newInitCmd returns the top-level "sshcloak init" command.

@@ -3,18 +3,35 @@
 package vault
 
 import (
-	"github.com/sipuaz/sshcloak/internal/keyring"
+	"time"
+
 	"github.com/spf13/cobra"
+
+	"github.com/sipuaz/sshcloak/internal/keyring"
+	"github.com/sipuaz/sshcloak/internal/session"
 )
 
 // sharedStore is the vault store instance injected by root.PersistentPreRunE.
 // CLI commands run sequentially, so a package-level pointer is safe here.
 var sharedStore *keyring.FileVaultStore
+var sharedSessionConfig SessionConfig
+
+// SessionConfig controls sudo-like vault unlock caching behavior.
+type SessionConfig struct {
+	Enabled bool
+	TTL     time.Duration
+	Client  *session.Client
+}
 
 // SetStore is called by root.PersistentPreRunE to inject the vault store before
 // any sub-command that needs it runs.
 func SetStore(_ *cobra.Command, store *keyring.FileVaultStore) {
 	sharedStore = store
+}
+
+// SetSession injects session-caching dependencies before sub-commands run.
+func SetSession(_ *cobra.Command, config SessionConfig) {
+	sharedSessionConfig = config
 }
 
 // getStore returns the injected vault store, panicking on a wiring bug.

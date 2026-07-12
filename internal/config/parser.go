@@ -63,7 +63,7 @@ func parseMatchBlock(tkn token) (*Block, error) {
 	b := &Block{Type: BlockMatch, Line: tkn.line}
 	vals := tkn.values
 	// Should return a ParseError when len(vals) is odd and not the All special case.
-	if len(vals)%2 != 0 && !(len(vals) == 1 && strings.EqualFold(vals[0], allLowerStr)) {
+	if len(vals)%2 != 0 && (len(vals) != 1 || !strings.EqualFold(vals[0], allLowerStr)) {
 		return nil, &ParseError{
 			Line: tkn.line,
 			Msg:  "Match block must have an even number of keyword-value pairs or be 'Match All'",

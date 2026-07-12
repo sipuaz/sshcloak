@@ -3,10 +3,7 @@ package vault
 import (
 	"fmt"
 
-	"os"
-
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 // newInitCmd returns "sshcloak vault init".
@@ -47,40 +44,28 @@ func newRotateCmd() *cobra.Command {
 with a new one.  Both passphrases are read interactively.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			oldPass, err := readPassphrase("Current passphrase: ")
+			store, err := UnlockStore("Current passphrase: ")
 			if err != nil {
-				return err
+				return fmt.Errorf("vault rotate-passphrase: %w", err)
 			}
+			defer store.Lock()
 
 			newPass, err := readPassphraseConfirm("New passphrase: ", "Confirm new passphrase: ")
 			if err != nil {
 				return err
 			}
 
-			store := getStore()
-			if err := store.Unlock(oldPass); err != nil {
-				return fmt.Errorf("vault rotate-passphrase: %w", err)
-			}
 			if err := store.RotatePassphrase(newPass); err != nil {
 				return fmt.Errorf("vault rotate-passphrase: %w", err)
 			}
-			store.Lock()
+			if err := LockSession(); err != nil {
+				return fmt.Errorf("vault rotate-passphrase: lock session cache: %w", err)
+			}
 
 			fmt.Fprintln(cmd.OutOrStdout(), "vault passphrase rotated")
 			return nil
 		},
 	}
-}
-
-// readPassphrase prompts the user for a single passphrase without echo.
-func readPassphrase(prompt string) (string, error) {
-	fmt.Fprint(os.Stderr, prompt)
-	raw, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(os.Stderr)
-	if err != nil {
-		return "", fmt.Errorf("reading passphrase: %w", err)
-	}
-	return string(raw), nil
 }
 
 // readPassphraseConfirm prompts twice and returns an error if the values differ.

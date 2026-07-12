@@ -92,7 +92,7 @@ sshcloak connect prod
 
 1. Resolves the host label directly, or via the interactive picker when no label was given.
 2. If `--tag` was provided, filters the picker to hosts carrying that tag.
-3. Prompts for the vault passphrase (no echo).
+3. Prompts for the vault passphrase on first use in a shell session (or every command when `--no-session-cache` is set).
 4. Unlocks the encrypted vault.
 5. If a password is stored for the selected label, execs: `sshpass -e ssh <label>`
   with `SSHPASS=<password>` in the environment.
@@ -102,6 +102,7 @@ sshcloak connect prod
 
 - A password stored with `sshcloak password set <label>` is optional. It enables
   automatic password injection for that label.
+- Session cache is memory-only and expires after `--session-ttl` (default 15m).
 - The host entry must be resolvable by SSH — either via the sshcloak-managed
   include file or your existing `~/.ssh/config`.
 - When no password record exists for a label, `connect` runs plain `ssh` and
