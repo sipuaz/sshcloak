@@ -5,8 +5,58 @@ on:
     tags: ['v*']
 
 jobs:
+  preflight:
+    name: Validate tag and quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Validate semantic version tag
+        run: |
+          if ! [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid semver tag: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
+      - name: Validate tag commit source branch
+        run: |
+          git fetch --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/develop:refs/remotes/origin/develop
+
+          if git merge-base --is-ancestor "${GITHUB_SHA}" "origin/main" || \
+             git merge-base --is-ancestor "${GITHUB_SHA}" "origin/develop"; then
+            echo "Tag commit is reachable from main or develop"
+          else
+            echo "Tag commit is not reachable from main or develop"
+            exit 1
+          fi
+
+      - name: Run tidy
+        run: go mod tidy
+
+      - name: Verify working tree is clean
+        run: git diff --exit-code -- go.mod go.sum
+
+      - name: Run lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+
+      - name: Run unit tests
+        run: go test ./...
+
+      - name: Run integration tests
+        run: go test -tags integration ./...
+
   build:
     name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: preflight
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -33,11 +83,8 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-        run: |
-          go build \
-            -ldflags "-X github.com/sipuaz/sshcloak/cmd/internal/cli.Version=${{ github.ref_name }}" \
-            -o sshcloak-${{ matrix.goos }}-${{ matrix.goarch }} \
-            ./cmd
+          VERSION: ${{ github.ref_name }}
+        run: make release-build GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} VERSION=${{ github.ref_name }}
 
       - uses: actions/upload-artifact@v4
         with:
@@ -61,5 +108,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-alpha') }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: sshcloak-*

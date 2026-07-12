@@ -1,0 +1,15 @@
+linters-settings:
+  goimports:
+    local-prefixes: github.com/sipuaz/sshcloak
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
