@@ -80,7 +80,7 @@ jobs:
           merge-multiple: true
 
       - name: Create or update dev pre-release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: dev
           name: Development snapshot
