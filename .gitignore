@@ -37,3 +37,6 @@ sshcloak
 # Docs
 .venv/
 site/
+
+# LLM stuff
+*bmad*
