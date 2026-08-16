@@ -21,6 +21,10 @@ func newRemoveCmd() *cobra.Command {
 				return fmt.Errorf("remove host: %w", err)
 			}
 
+			if err := getMetadata().Delete(label); err != nil {
+				return fmt.Errorf("remove host metadata: %w", err)
+			}
+
 			fmt.Fprintf(cmd.OutOrStdout(), "host %q removed\n", label)
 			return nil
 		},

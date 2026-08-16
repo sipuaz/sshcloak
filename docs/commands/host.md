@@ -225,6 +225,7 @@ sshcloak host delete <label>
 **Description**
 
 Delete the `Host` block for `<label>` from the managed include file.  
+Any tags stored for `<label>` in the metadata sidecar are deleted as well.  
 The root `~/.ssh/config` is not modified.
 
 **Example**

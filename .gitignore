@@ -32,11 +32,8 @@ go.work.sum
 # .vscode/
 
 # Build output
-sshcloak
+sshcloak*
 
 # Docs
 .venv/
 site/
-
-# LLM stuff
-*bmad*

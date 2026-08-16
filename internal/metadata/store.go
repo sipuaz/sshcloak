@@ -105,6 +105,25 @@ func (s *Store) RemoveTags(label string, tags ...string) error {
 	return s.persist(doc)
 }
 
+// Delete removes all metadata stored for one host label. Deleting a label with
+// no metadata is a no-op.
+func (s *Store) Delete(label string) error {
+	normalizedLabel := strings.TrimSpace(label)
+	if normalizedLabel == "" {
+		return errors.New("metadata host label cannot be empty")
+	}
+
+	doc, err := s.load()
+	if err != nil {
+		return err
+	}
+	if _, ok := doc.Hosts[normalizedLabel]; !ok {
+		return nil
+	}
+	delete(doc.Hosts, normalizedLabel)
+	return s.persist(doc)
+}
+
 // TaggedHosts returns host labels whose metadata includes the requested tag.
 func (s *Store) TaggedHosts(tag string) ([]string, error) {
 	normalizedTag := strings.TrimSpace(tag)
