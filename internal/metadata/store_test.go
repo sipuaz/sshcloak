@@ -80,6 +80,29 @@ func TestStoreRemoveTagsDeletesEmptyHostEntry(t *testing.T) {
 	}
 }
 
+func TestStoreDeleteRemovesHostEntry(t *testing.T) {
+	files := newFileStub()
+	store := metadata.NewStore(files, "meta.yaml")
+
+	if err := store.AddTags("prod", "web", "eu"); err != nil {
+		t.Fatalf("AddTags() error: %v", err)
+	}
+	if err := store.Delete("prod"); err != nil {
+		t.Fatalf("Delete() error: %v", err)
+	}
+	if err := store.Delete("prod"); err != nil {
+		t.Fatalf("Delete() on missing label error: %v", err)
+	}
+
+	tags, err := store.Tags("prod")
+	if err != nil {
+		t.Fatalf("Tags() error: %v", err)
+	}
+	if len(tags) != 0 {
+		t.Fatalf("Tags() = %v, want empty", tags)
+	}
+}
+
 func TestStoreTaggedHostsReturnsSortedMatches(t *testing.T) {
 	files := newFileStub()
 	store := metadata.NewStore(files, "meta.yaml")

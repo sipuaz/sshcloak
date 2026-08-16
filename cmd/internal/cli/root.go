@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sipuaz/sshcloak/cmd/internal/cli/completion"
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/host"
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/password"
 	"github.com/sipuaz/sshcloak/cmd/internal/cli/vault"
@@ -92,6 +93,7 @@ keyring and manages host entries in ~/.ssh/config via a dedicated include file.`
 			managedConfigPath,
 		)
 		host.SetManager(cmd, mgr)
+		completion.SetManager(cmd, mgr)
 		host.SetMetadataStore(cmd, metadata.NewStore(config.NewFileHandler(), metaPath))
 
 		store := keyring.NewFileVaultStore(vaultPath)
@@ -119,6 +121,7 @@ keyring and manages host entries in ~/.ssh/config via a dedicated include file.`
 		host.NewHostCmd(),
 		vault.NewVaultCmd(),
 		password.NewPasswordCmd(),
+		completion.NewCompletionCmd(),
 	)
 
 	return root
