@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/sipuaz/sshcloak/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/sipuaz/sshcloak/internal/config"
 )
 
 // TestListHostsCmd_MatchesOutput validates list-hosts command structure and output format.

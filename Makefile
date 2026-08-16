@@ -6,12 +6,14 @@ USER_INSTALL := $(USER_BIN)/$(BINARY)
 DOCS_REQS  := docs/requirements.txt
 DOCS_VENV  := .venv
 MKDOCS     := $(DOCS_VENV)/bin/mkdocs
+GOBIN      := $(shell go env GOPATH)/bin
+GOLANGCI_VERSION := v2.12.2
 VERSION_VAR := github.com/sipuaz/sshcloak/cmd/internal/cli.Version
 VERSION     := $(shell cat VERSION 2>/dev/null | tr -d '[:space:]' || git describe --tags --always)
 BUILD_FLAGS := -ldflags "-X $(VERSION_VAR)=$(VERSION)"
 
 
-.PHONY: all build test test-integration tidy lint release-build install uninstall clean init \
+.PHONY: all build test test-integration tidy lint lint-install release-build install uninstall clean init \
 	docs-install docs-serve docs-build docs-deploy
 .PHONY: install-user
 
@@ -35,7 +37,17 @@ tidy:
 
 ## lint: run static checks and formatting linters
 lint:
-	golangci-lint run ./...
+	@LINT=$$(command -v golangci-lint || echo $(GOBIN)/golangci-lint); \
+	if [ ! -x "$$LINT" ]; then \
+		echo "golangci-lint not found; run 'make lint-install'"; \
+		exit 1; \
+	fi; \
+	"$$LINT" run ./...
+
+## lint-install: install the golangci-lint version used by CI
+lint-install:
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
+	@echo "installed to $(GOBIN)"
 
 ## release-build: build a platform-specific release artifact (requires GOOS/GOARCH)
 release-build:
